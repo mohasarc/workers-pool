@@ -1,0 +1,25 @@
+{
+  "name": "simple-thread-pool",
+  "version": "1.0.0",
+  "description": "Thread pool design pattern for nodejs thread workers",
+  "main": "Pool.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mohasarc/simple-thread-pool.git"
+  },
+  "keywords": [
+    "npm",
+    "simple-thread-pool",
+    "thread-pool",
+    "worker-threads"
+  ],
+  "author": "Mohammed S. Yaseen",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mohasarc/simple-thread-pool/issues"
+  },
+  "homepage": "https://github.com/mohasarc/simple-thread-pool#readme"
+}
