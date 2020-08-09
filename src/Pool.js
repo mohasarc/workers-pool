@@ -4,6 +4,10 @@ const path = require('path');
 const {MESSAGE_CHANNEL} = require('./constants');
 
 module.exports = class Pool{
+    /**
+     * The constructor of Pool class
+     * @param {The number of threads (default is the number of cpu cores - 1)} n 
+     */
     constructor(n){
         this.workersPool = []; // contains the workers
         this.taskQueue   = []; // contains the tasks to be processed
@@ -14,19 +18,38 @@ module.exports = class Pool{
         this.initWorkerPool(n);
     }
 
+    /**
+     * Initiates the workers pool by creating the worker threads
+     * @param {The number of threads (default is the number of cpu cores - 1)} n 
+     */
     initWorkerPool(n){
         // Create n number of workers and set them to be not busy
         for (var i = 0; i < n; i++){
-            var _worker = new Worker(path.join(__dirname, 'worker.js'))
+            var _worker = new Worker(path.join(__dirname, 'worker.js'));
             _worker.busy = false;
             this.workersPool.push(_worker);
         }
     }
 
+    /**
+     * Generates and returns a task handler to be used to run the task frequently
+     * without the overhead of rewriting the file path, function name, and calling 
+     * pool.enqueue task each time the function is called
+     * @param {The path of the file containing the function to be run} filePath 
+     * @param {The name of function to be run} functionName
+     * @return a TaskHandler object that stores the task information
+     */
     getTaskHandler(filePath, functionName){
         return new TaskHandler(filePath, functionName, this);
     }
 
+    /**
+     * Enqueues a task to be processed when an idle worker thread is available
+     * @param {The path of the file containing the function to be run} filePath 
+     * @param {The name of function to be run} functionName 
+     * @param {The parameters to be passed to the function} params 
+     * @param {A callback function that is called when the task has finished executing} callBack
+     */
     enqueueTask(filePath, functionName, params, callBack){
         var task = {filePath : filePath, 
                     functionName : functionName, 
@@ -37,6 +60,11 @@ module.exports = class Pool{
         this.processTasks();
     }
 
+    /**
+     * Checks if there are any pending tasks and if there are any idle
+     * workers to process them, prepares them for processing, and processes
+     * them.
+     */
     processTasks(){
         while (this.taskQueue.length > 0 && this.workersPool.length > 0){
             // remove a free worker from the beginings of the array
