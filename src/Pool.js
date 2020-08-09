@@ -127,4 +127,12 @@ module.exports = class Pool{
     terminate(forced){
 
     }
+
+    /**
+     * The current status of the pool
+     * @param {If true the information will be detailed} detailed 
+     */
+    status(detailed){
+
+    }
 }
