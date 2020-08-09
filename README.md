@@ -15,21 +15,21 @@ npm i workers-pool
 const Pool = require('workers-pool');
 const pool = new Pool(5);
 
-// The function to be used in the task (should be exported)
 module.exports.add = function (a, b) {
     return a + b;
 }
 
-// Creating a TaskHandler object fot the add function by passing
-// the absolute path to its file and its name
 var addAsync = pool.getTaskHandler(__filename, 'add');
 
-// Calling the function (this will be enqueued in the pools tasks
-// queue waiting to be run by any idle worker thread in the pool)
 addAsync.run([2, 5], function (result) {
     console.log(result) // 7
 });
 ```
+Firstly, the function to be used as the task has to be exported or 
+stringifiable. Then, we use the file absolute path with the exported
+function name to create a TaskHandler object. This object will hold
+information about the task. Finally, the TaskHandler object `addAsync`
+can be used to run the task using `run` method.
 
 Another way to run functions on the fly is also available: 
 
@@ -37,14 +37,15 @@ Another way to run functions on the fly is also available:
 const Pool = require('workers-pool');
 const pool = new Pool(5);
 
-// The function to be used in the task (should be exported)
 module.exports.add = function (a, b) {
     return a + b;
 }
 
-// enqueuing the function in the pools tasks queue waiting to 
-// be run by any idle worker thread in the pool
 pool.enqueueTask(__filename, 'add', [2, 5], function (){
     console.log(result) // 7
 })
 ```
+The first step is the same. We'd also skip over the second step and
+jump directly to the third step, but instead of calling `run` method
+on TaskHandler object, we'd directly enqueue the function using 
+`pool.enqueueTask` method of pool class.
