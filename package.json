@@ -1,5 +1,5 @@
 {
-  "name": "simple-thread-pool",
+  "name": "workers-pool",
   "version": "1.0.0",
   "description": "Thread pool design pattern for nodejs thread workers",
   "main": "./src/Pool.js",
@@ -8,18 +8,18 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mohasarc/simple-thread-pool.git"
+    "url": "git+https://github.com/mohasarc/workers-pool.git"
   },
   "keywords": [
     "npm",
-    "simple-thread-pool",
+    "workers-pool",
     "thread-pool",
     "worker-threads"
   ],
   "author": "Mohammed S. Yaseen",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/mohasarc/simple-thread-pool/issues"
+    "url": "https://github.com/mohasarc/workers-pool/issues"
   },
-  "homepage": "https://github.com/mohasarc/simple-thread-pool#readme"
+  "homepage": "https://github.com/mohasarc/workers-pool#readme"
 }
