@@ -116,4 +116,13 @@ module.exports = class Pool{
             }.bind(this));
         }
     }
+
+    /**
+     * Terminates all the tasks. If forced is true it will not wait for the
+     * active tasks to finish.
+     * @param {To terminate immediately} forced 
+     */
+    terminate(forced){
+
+    }
 }
