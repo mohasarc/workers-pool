@@ -2,7 +2,7 @@
   "name": "simple-thread-pool",
   "version": "1.0.0",
   "description": "Thread pool design pattern for nodejs thread workers",
-  "main": "Pool.js",
+  "main": "./src/Pool.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
