@@ -7,25 +7,27 @@ module.exports = class Pool{
     /**
      * The constructor of Pool class
      * @param {The number of threads (default is the number of cpu cores - 1)} n 
+     * @param {The optional options used in creating workers} options
      */
-    constructor(n){
+    constructor(n, options){
         this.workersPool = []; // contains the workers
         this.taskQueue   = []; // contains the tasks to be processed
         this.activeTasks = []; // contains the tasks being processed
         this.processed = {};
         this.counter = 0;
 
-        this.initWorkerPool(n);
+        this.initWorkerPool(n, options);
     }
 
     /**
      * Initiates the workers pool by creating the worker threads
      * @param {The number of threads (default is the number of cpu cores - 1)} n 
+     * @param {The optional options used in creating workers} options
      */
-    initWorkerPool(n){
+    initWorkerPool(n, optionas){
         // Create n number of workers and set them to be not busy
         for (var i = 0; i < n; i++){
-            var _worker = new Worker(path.join(__dirname, 'worker.js'));
+            var _worker = new Worker(path.join(__dirname, 'worker.js'), optionas);
             _worker.busy = false;
             this.workersPool.push(_worker);
         }
