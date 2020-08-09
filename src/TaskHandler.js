@@ -8,16 +8,6 @@ module.exports = class TaskHandler {
     }
 
     run(params, callBack){
-        if (typeof params != 'undefined')
-            this.params = params;
-        else
-            this.params = [];
-        
-        if (typeof callBack != 'undefined')
-            this.callBack = callBack;
-        else
-            this.callBack = null;
-
-        this.pool.enqueueTask(this);
+        this.pool.enqueueTask(this.filePath, this.functionName, params, callBack);
     }
 }

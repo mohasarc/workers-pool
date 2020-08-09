@@ -1,14 +1,16 @@
 const TaskHandler = require('./TaskHandler');
 const {Worker} = require('worker_threads');
 const path = require('path');
+const {MESSAGE_CHANNEL} = require('./constants');
 
 module.exports = class Pool{
     constructor(n){
         this.workersPool = []; // contains the workers
-        this.taskQueue = []; // contains the tasks to be processed
+        this.taskQueue   = []; // contains the tasks to be processed
+        this.activeTasks = []; // contains the tasks being processed
         this.processed = {};
-        this.tasksWaitingList = [];
         this.counter = 0;
+
         this.initWorkerPool(n);
     }
 
@@ -25,15 +27,17 @@ module.exports = class Pool{
         return new TaskHandler(filePath, functionName, this);
     }
 
-    enqueueTask(taskHandler){
-        console.log('enqueueing the task');
-        this.taskQueue.push({taskHandler : taskHandler, key : this.counter++ });
+    enqueueTask(filePath, functionName, params, callBack){
+        var task = {filePath : filePath, 
+                    functionName : functionName, 
+                    params : params, 
+                    callBack : callBack, 
+                    key : this.counter++ };
+        this.taskQueue.push(task);
         this.processTasks();
     }
 
     processTasks(){
-        console.log('processing the task');
-
         while (this.taskQueue.length > 0 && this.workersPool.length > 0){
             // remove a free worker from the beginings of the array
             var worker = this.workersPool.shift();
@@ -41,53 +45,42 @@ module.exports = class Pool{
 
             // remove the first item in the tasks queue
             var task = this.taskQueue.shift();
-            this.tasksWaitingList.push(task);
+            this.activeTasks.push(task);
 
             // set its key as not processed
             this.processed[task.key] = false;
 
             // Build the message object
             var message = {
-                filePath : task.taskHandler.filePath,
-                functionName : task.taskHandler.functionName,
-                params : task.taskHandler.params,
+                filePath : task.filePath,
+                functionName : task.functionName,
+                params : task.params,
                 key : task.key,
             }
 
             // send the task to the worker to be processed
             worker.postMessage(message);
 
-            worker.on('message', function (returnMessage) {
+            worker.on(MESSAGE_CHANNEL, function (returnMessage) {
                 if (!this.processed[returnMessage.key]){
                     this.processed[returnMessage.key] = true;
                     
 
                     // get the callBack
                     var callBack;
-                    this.tasksWaitingList.map( task => {
-                        if (task.key == returnMessage.key)
-                            callBack = task.taskHandler.callBack;
-                    });
+                    this.activeTasks.map( function (task, i) {
+                        if (task.key == returnMessage.key){
+                            callBack = task.callBack;
+                            this.activeTasks.splice(i, 1);
+                        }
+                    }.bind(this));
 
                     // call the callback
-                    console.log('the callback', callBack);
                     callBack(returnMessage.result);
                 
                     // mark the worker as not busy and add it back to the pool
                     worker.busy = false;
-    
-                    console.log('worker has not been added to list yet [ ');
-                    this.workersPool.map( work => {
-                        console.log(work.busy + ' , ');
-                    });
-                    console.log(' ] ');
                     this.workersPool.unshift(worker);
-                    console.log('worker made not busy', worker.busy);
-                    console.log('worker has been added to list [ ');
-                    this.workersPool.map( work => {
-                        console.log(work.busy + ' , ');
-                    });
-                    console.log(' ] ');
     
                     // a worker is freed, check if there is any task to be processed
                     this.processTasks();
