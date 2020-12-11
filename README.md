@@ -2,7 +2,9 @@
 
 
 The `workers-pool` package allows you to easily create a pool of workers, pass them
-some heavy tasks in the form of functions, and use them as if they were asynchronous functions:
+some heavy tasks in the form of functions, and use them as if they were asynchronous functions.
+
+Important note: This is not yet stable, you may not use it for production!
 
 ## Installing the package
 ```js
