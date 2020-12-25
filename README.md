@@ -13,38 +13,62 @@ npm i workers-pool
 
 ## Usage
 
-```js
-const Pool = require('workers-pool');
-const pool = new Pool(5);
+folder structure:
+  |__ index.js
+  |__ funcs.js
+  |__ asyncFuncs.js
 
+```js
+// funcs.js
 module.exports.add = function (a, b) {
     return a + b;
 }
+```
 
-var addAsync = pool.getTaskHandler(__filename, 'add');
+```js
+// asyncFuncs.js
+const path = require('path');
+const Pool = require('workers-pool');
+const pool = new Pool(5);
+
+module.exports.addAsync = pool.getTaskHandler(path.join(__dirname, 'funcs.js'), 'add');
+```
+
+```js
+// index.js
+const {addAsync} = require('./asyncFuncs');
 
 addAsync.run([2, 5], function (result) {
-    console.log(result) // 7
+    console.log(result) // output: 7
 });
 ```
-Firstly, the function to be used as the task has to be exported or 
-stringifiable. Then, we use the file absolute path with the exported
+Firstly, the function to be used as the task has to be exported. 
+Then, we use the file absolute path with the exported
 function name to create a TaskHandler object. This object will hold
 information about the task. Finally, the TaskHandler object `addAsync`
 can be used to run the task using `run` method.
 
 Another way to run functions on the fly is also available: 
 
-```js
-const Pool = require('workers-pool');
-const pool = new Pool(5);
+folder structure:
+  |__ index.js
+  |__ funcs.js
 
+```js
+// funcs.js
 module.exports.add = function (a, b) {
     return a + b;
 }
+```
 
-pool.enqueueTask(__filename, 'add', [2, 5], function (){
-    console.log(result) // 7
+```js
+// index.js
+const path = require('path');
+const Pool = require('workers-pool');
+const pool = new Pool(5);
+
+pool.enqueueTask(path.join(__dirname, 'funcs.js'), 'add', [2, 5], function (result){
+    console.log(result) // output: 7
 })
 ```
 The first step is the same. We'd also skip over the second step and
