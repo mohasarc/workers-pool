@@ -6,6 +6,7 @@ const Task = require('./task');
 const os = require('os');
 const TaskWorker = require('./TaskWorker');
 const CPU_CORES_NO = os.cpus().length;
+var instantiatedPools = [];
 
 module.exports = class Pool{
     /**
@@ -18,6 +19,10 @@ module.exports = class Pool{
         this.taskQueue   = []; // contains the tasks to be processed
         this.activeTasks = []; // contains the tasks being processed
         this.processed = {};   // {taskKey:boolean} whether a task has been processed yet
+        this.workersNo = n;
+
+        instantiatedPools.push(this);
+        this.poolNo = instantiatedPools.length - 1;
 
         this._initWorkerPool(n, options);
     }
@@ -132,7 +137,27 @@ module.exports = class Pool{
      * The current status of the pool
      * @param {boolean} detailed If true the information will be detailed
      */
-    status(detailed){
-        // TODO to be implemented
+    static status(detailed){
+        console.log('Number of pools: ', instantiatedPools.length);
+
+        instantiatedPools.map( pool => {
+            console.log(`---------- POOL ${pool.poolNo} ----------`)
+            console.log('Number of idle workers: ', pool.workersPool.length);
+            console.log('Number of busy workers: ', pool.workersNo - pool.workersPool.length);
+            console.log('Number of active tasks: ', pool.activeTasks.length);
+            console.log('Number of Waiting tasks: ', pool.taskQueue.length); 
+            
+            if (detailed) {
+                console.log('\nActive tasks: \n');
+                pool.activeTasks.map((task, i) => {
+                    console.log(i,' : ', JSON.stringify(task), '\n');
+                });
+        
+                console.log('Waiting tasks: \n');
+                pool.taskQueue.map((task, i) => {
+                    console.log(i,' : ', JSON.stringify(task), '\n');
+                });
+            }
+        });
     }
 }
