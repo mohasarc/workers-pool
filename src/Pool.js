@@ -133,6 +133,8 @@ module.exports = class Pool{
      * @param {boolean} forced To terminate immediately
      */
     terminate(forced){
+        this.taskQueue = [];
+
         this.workersPool.map(worker => {
             worker.terminate();
         });
