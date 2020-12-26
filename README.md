@@ -1,11 +1,12 @@
 # workers-pool
 
+[![Coverage Status](https://coveralls.io/repos/github/mohasarc/workers-pool/badge.svg?branch=master)](https://coveralls.io/github/mohasarc/workers-pool?branch=master)
 
 The `workers-pool` package allows you to easily create a pool of workers, pass them
 some heavy tasks in the form of functions, and use them as if they were asynchronous Promise-based functions.
 
-Important note 1: This is not yet stable, you may not use it for production!  
-Important note 2: Currently there is supports for only node environment!
+**Important note 1:** This is not yet stable, you may not use it for production!  
+**Important note 2:** Currently there is supports for only node environment!
 
 ## Installing the package
 ```js
@@ -24,7 +25,7 @@ folder structure:
 The reason the code is distributed into separate files in not to make circular dependency. If the path of the same file that `getAsyncFunc()` is called from is passed to it, an infinite loop will occur, since theworker thread will include this file and create another pool and worker thread and so on. However, it is possible to have the code that is in /asyncFuncs.js in /index.js. I just prefered to have them separate for organisational purposes.
 
 
-/funcs.js will contain the function to be used as the task. The function doesn't have to be stringifyable, but it has to be exported and its parameters have to be stringifyable.
+/funcs.js will contain the function to be used as the task. The function doesn't have to be stringifyable, but it has to be exported and its parameters have to be stringifyable. On the other hand if the function has a call to another function, the other function also has to be exported.
 
 ```js
 // funcs.js
@@ -57,8 +58,6 @@ addAsync(2, 5)
     console.log(error);
 });
 ```
-
-Note that if the function has a call to another function, the other function also has to be exported.
 
 ### Method 2: Executing a function on the fly
 Another way to run functions on the fly is also available: 
