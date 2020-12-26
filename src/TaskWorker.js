@@ -38,7 +38,7 @@ module.exports = class TaskWorker extends Worker{
             });
 
             super.on("online", () => {
-                console.log("TaskWorker is online");
+                // console.log("TaskWorker is online");
             });
 
             super.on("message", (response) => {
