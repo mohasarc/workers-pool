@@ -14,10 +14,10 @@ module.exports = class Pool{
         this.workersPool = []; // contains the workers
         this.taskQueue   = []; // contains the tasks to be processed
         this.activeTasks = []; // contains the tasks being processed
-        this.processed = {};
-        this.counter = 0;
+        this.processed = {};   // {taskKey:boolean} whether a task has been processed yet
 
         this.initWorkerPool(n, options);
+        this._initMessageListener();
     }
 
     /**
@@ -87,21 +87,28 @@ module.exports = class Pool{
 
             // send the task to the worker to be processed
             worker.postMessage(message);
+        }
+    }
 
-            worker.on(MESSAGE_CHANNEL, function (returnMessage) {
+    /**
+     * @private
+     * Initializes the parent's listener to the child thread's messages
+     */
+    _initMessageListener(){
+        this.workersPool.map((worker) => {
+            worker.on(MESSAGE_CHANNEL, (returnMessage) => {
                 if (!this.processed[returnMessage.key]){
                     this.processed[returnMessage.key] = true;
                     
-
                     // get the callBack
                     var callBack;
-                    this.activeTasks.map( function (task, i) {
+                    this.activeTasks.map( (task, i) => {
                         if (task.key == returnMessage.key){
                             callBack = task.callBack;
                             this.activeTasks.splice(i, 1);
                         }
-                    }.bind(this));
-
+                    });
+    
                     // call the callback
                     callBack(returnMessage.result);
                 
@@ -112,8 +119,8 @@ module.exports = class Pool{
                     // a worker is freed, check if there is any task to be processed
                     this.processTasks();
                 }
-            }.bind(this));
-        }
+            });
+        });
     }
 
     /**
