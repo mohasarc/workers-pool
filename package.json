@@ -5,7 +5,7 @@
   "main": "./src/Pool.js",
   "scripts": {
     "test": "jest",
-    "publish": "git push --tags && npm publish"
+    "prepublish": "git push --tags"
   },
   "repository": {
     "type": "git",
