@@ -1,9 +1,9 @@
 module.exports = class TaskHandler {
     /**
      * 
-     * @param {The path of the file containing the function to be run} filePath 
-     * @param {The name of function to be run} functionName 
-     * @param {The pool instance that generated this TaskHandler} pool 
+     * @param {String} filePath The path of the file containing the function to be run
+     * @param {String} functionName The name of function to be run
+     * @param {Pool} pool The pool instance that generated this TaskHandler
      */
     constructor(filePath, functionName, pool){
         this.filePath = filePath;
@@ -16,8 +16,8 @@ module.exports = class TaskHandler {
     /**
      * Runs the task with the given parameter list, The call back function
      * is called whenever the function finishes executing.
-     * @param {The parameters to be passed to the function} params 
-     * @param {A callback function that is called when the task has finished executing} callBack 
+     * @param {Array} params The parameters to be passed to the function
+     * @param {Function} callBack A callback function that is called when the task has finished executing
      */
     run(params, callBack){
         this.pool.enqueueTask(this.filePath, this.functionName, params, callBack);

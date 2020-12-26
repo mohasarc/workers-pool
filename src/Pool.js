@@ -6,8 +6,8 @@ const {MESSAGE_CHANNEL} = require('./constants');
 module.exports = class Pool{
     /**
      * The constructor of Pool class
-     * @param {The number of threads (default is the number of cpu cores - 1)} n 
-     * @param {The optional options used in creating workers} options
+     * @param {Number} n The number of threads (default is the number of cpu cores - 1)
+     * @param {Object} options The optional options used in creating workers
      */
     constructor(n, options){
         this.workersPool = []; // contains the workers
@@ -16,15 +16,16 @@ module.exports = class Pool{
         this.processed = {};
         this.counter = 0;
 
-        this.initWorkerPool(n, options);
+        this._initWorkerPool(n, options);
     }
 
     /**
+     * @private
      * Initiates the workers pool by creating the worker threads
-     * @param {The number of threads (default is the number of cpu cores - 1)} n 
-     * @param {The optional options used in creating workers} options
+     * @param {Number} n The number of threads (default is the number of cpu cores - 1) 
+     * @param {Object} options The optional options used in creating workers
      */
-    initWorkerPool(n, optionas){
+    _initWorkerPool(n, optionas){
         // Create n number of workers and set them to be not busy
         for (var i = 0; i < n; i++){
             var _worker = new Worker(path.join(__dirname, 'worker.js'), optionas);
@@ -37,8 +38,8 @@ module.exports = class Pool{
      * Generates and returns a task handler to be used to run the task frequently
      * without the overhead of rewriting the file path, function name, and calling 
      * pool.enqueue task each time the function is called
-     * @param {The path of the file containing the function to be run} filePath 
-     * @param {The name of function to be run} functionName
+     * @param {String} filePath The path of the file containing the function to be run
+     * @param {String} functionName The name of function to be run
      * @return a TaskHandler object that stores the task information
      */
     getTaskHandler(filePath, functionName){
@@ -64,10 +65,10 @@ module.exports = class Pool{
 
     /**
      * Enqueues a task to be processed when an idle worker thread is available
-     * @param {The path of the file containing the function to be run} filePath 
-     * @param {The name of function to be run} functionName 
-     * @param {The parameters to be passed to the function} params 
-     * @param {A callback function that is called when the task has finished executing} callBack
+     * @param {String} filePath The path of the file containing the function to be run
+     * @param {String} functionName The name of function to be run
+     * @param {Array} params The parameters to be passed to the function
+     * @param {Function} callBack A callback function that is called when the task has finished executing
      */
     enqueueTask(filePath, functionName, params, callBack){
         var task = {filePath : filePath, 
@@ -76,15 +77,16 @@ module.exports = class Pool{
                     callBack : callBack, 
                     key : this.counter++ };
         this.taskQueue.push(task);
-        this.processTasks();
+        this._processTasks();
     }
 
     /**
+     * @private
      * Checks if there are any pending tasks and if there are any idle
      * workers to process them, prepares them for processing, and processes
      * them.
      */
-    processTasks(){
+    _processTasks(){
         while (this.taskQueue.length > 0 && this.workersPool.length > 0){
             // remove a free worker from the beginings of the array
             var worker = this.workersPool.shift();
@@ -130,7 +132,7 @@ module.exports = class Pool{
                     this.workersPool.unshift(worker);
     
                     // a worker is freed, check if there is any task to be processed
-                    this.processTasks();
+                    this._processTasks();
                 }
             }.bind(this));
         }
@@ -139,17 +141,17 @@ module.exports = class Pool{
     /**
      * Terminates all the tasks. If forced is true it will not wait for the
      * active tasks to finish.
-     * @param {To terminate immediately} forced 
+     * @param {boolean} forced To terminate immediately
      */
     terminate(forced){
-
+        // TODO to be implemented
     }
 
     /**
      * The current status of the pool
-     * @param {If true the information will be detailed} detailed 
+     * @param {boolean} detailed If true the information will be detailed
      */
     status(detailed){
-
+        // TODO to be implemented
     }
 }
