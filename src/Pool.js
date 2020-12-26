@@ -2,6 +2,7 @@ const TaskHandler = require('./TaskHandler');
 const {Worker} = require('worker_threads');
 const path = require('path');
 const {MESSAGE_CHANNEL} = require('./constants');
+const Task = require('./task');
 
 module.exports = class Pool{
     /**
@@ -53,11 +54,7 @@ module.exports = class Pool{
      * @param {A callback function that is called when the task has finished executing} callBack
      */
     enqueueTask(filePath, functionName, params, callBack){
-        var task = {filePath : filePath, 
-                    functionName : functionName, 
-                    params : params, 
-                    callBack : callBack, 
-                    key : this.counter++ };
+        let task = new Task(filePath, functionName, params, callBack);
         this.taskQueue.push(task);
         this.processTasks();
     }
