@@ -1,7 +1,5 @@
 # workers-pool
 
-[![Coverage Status](https://coveralls.io/repos/github/mohasarc/workers-pool/badge.svg?branch=master)](https://coveralls.io/github/mohasarc/workers-pool?branch=master)
-
 The `workers-pool` package allows you to easily create a pool of workers, pass them
 some heavy tasks in the form of functions, and use them as if they were asynchronous Promise-based functions.
 
