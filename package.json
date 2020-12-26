@@ -4,7 +4,8 @@
   "description": "Thread pool design pattern for nodejs thread workers",
   "main": "./src/Pool.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "publish": "git push --tags && npm publish"
   },
   "repository": {
     "type": "git",
@@ -16,6 +17,7 @@
     "thread-pool",
     "worker-threads"
   ],
+  "sideEffects": false,
   "author": "Mohammed S. Yaseen",
   "license": "MIT",
   "bugs": {
