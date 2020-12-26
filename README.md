@@ -15,9 +15,9 @@ npm i workers-pool
 
 folder structure:
 
-|__ index.js
-|__ funcs.js
-|__ asyncFuncs.js
+|__ index.js  
+|__ funcs.js  
+|__ asyncFuncs.js  
 
 ```js
 // funcs.js
@@ -53,8 +53,8 @@ Another way to run functions on the fly is also available:
 
 folder structure:
 
-|__ index.js
-|__ funcs.js
+|__ index.js  
+|__ funcs.js  
 
 ```js
 // funcs.js
