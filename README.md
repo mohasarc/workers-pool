@@ -78,9 +78,11 @@ const path = require('path');
 const Pool = require('workers-pool');
 const pool = new Pool(5);
 
-pool.enqueueTask(path.join(__dirname, 'funcs.js'), 'add', [2, 5], function (result){
+pool.enqueueTask(path.join(__dirname, 'funcs.js'), 'add', [2, 5], 
+(result) => {
     console.log(result) // output: 7
-}, function (error) {
+},
+(error) => {
     // Handle error
     console.log(error);
 });
