@@ -24,7 +24,7 @@ folder structure:
 The reason the code is distributed into separate files in not to make circular dependency. If the path of the same file that `getAsyncFunc()` is called from is passed to it, an infinite loop will occur, since theworker thread will include this file and create another pool and worker thread and so on. However, it is possible to have the code that is in /asyncFuncs.js in /index.js. I just prefered to have them separate for organisational purposes.
 
 
-/funcs.js will contain the function to be used as the task. it has to be exported.
+/funcs.js will contain the function to be used as the task. The function doesn't have to be stringifyable, but it has to be exported and its parameters have to be stringifyable.
 
 ```js
 // funcs.js
