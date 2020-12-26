@@ -3,6 +3,8 @@ const {Worker} = require('worker_threads');
 const path = require('path');
 const {MESSAGE_CHANNEL} = require('./constants');
 const Task = require('./task');
+const os = require('os');
+const CPU_CORES_NO = os.cpus().length;
 
 module.exports = class Pool{
     /**
@@ -10,7 +12,7 @@ module.exports = class Pool{
      * @param {Number} n The number of threads (default is the number of cpu cores - 1)
      * @param {Object} options The optional options used in creating workers
      */
-    constructor(n, options){
+    constructor(n = CPU_CORES_NO - 1, options){
         this.workersPool = []; // contains the workers
         this.taskQueue   = []; // contains the tasks to be processed
         this.activeTasks = []; // contains the tasks being processed
