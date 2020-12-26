@@ -41,8 +41,11 @@ module.exports = class TaskWorker extends Worker{
                 console.log("TaskWorker is online");
             });
 
-            super.on("message", (value) => {
-                resolve(value);
+            super.on("message", (response) => {
+                if (response.type == 'success')
+                    resolve(response.value);
+                else if (response.type == 'error')
+                    reject(response.value);
             });
         });
     }
