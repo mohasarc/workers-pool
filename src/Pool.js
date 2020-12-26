@@ -107,15 +107,9 @@ module.exports = class Pool{
 
             worker.processTask(task).then((result) => {
                 task.resolveCallback(result);
-
-                worker.busy = false;
-                this.workersPool.unshift(worker);
-
-                // a worker is freed, check if there is any task to be processed
-                this._processTasks();
             }).catch((error) => {
                 task.rejectCallback(error);
-
+            }).finally(() => {
                 worker.busy = false;
                 this.workersPool.unshift(worker);
 
