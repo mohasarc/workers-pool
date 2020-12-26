@@ -14,9 +14,10 @@ npm i workers-pool
 ## Usage
 
 folder structure:
-  |__ index.js
-  |__ funcs.js
-  |__ asyncFuncs.js
+
+|__ index.js
+|__ funcs.js
+|__ asyncFuncs.js
 
 ```js
 // funcs.js
@@ -51,8 +52,9 @@ can be used to run the task using `run` method.
 Another way to run functions on the fly is also available: 
 
 folder structure:
-  |__ index.js
-  |__ funcs.js
+
+|__ index.js
+|__ funcs.js
 
 ```js
 // funcs.js
