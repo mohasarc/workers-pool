@@ -1,9 +1,10 @@
 const TaskHandler = require('./TaskHandler');
-const {Worker} = require('worker_threads');
+// const {Worker} = require('worker_threads');
 const path = require('path');
 const {MESSAGE_CHANNEL} = require('./constants');
 const Task = require('./task');
 const os = require('os');
+const TaskWorker = require('./TaskWorker');
 const CPU_CORES_NO = os.cpus().length;
 
 module.exports = class Pool{
@@ -30,9 +31,9 @@ module.exports = class Pool{
     _initWorkerPool(n, optionas){
         // Create n number of workers and set them to be not busy
         for (var i = 0; i < n; i++){
-            var _worker = new Worker(path.join(__dirname, 'worker.js'), optionas);
+            var _worker = new TaskWorker(path.join(__dirname, 'worker.js'), optionas);
             _worker.busy = false;
-            this._initMessageListener(_worker);
+            // this._initMessageListener(_worker);
             this.workersPool.push(_worker);
         }
     }
@@ -59,9 +60,14 @@ module.exports = class Pool{
 
         return async function (...params) {
             return new Promise((resolve, reject) => {
-                self.enqueueTask(filePath, functionName, params, (result) => {
-                    resolve(result);
-                });
+                self.enqueueTask(filePath, functionName, params, 
+                    (result) => {
+                        resolve(result);
+                    }, 
+                    (error) => {
+                        reject(error);
+                    }
+                );
             });
         }
     }
@@ -71,10 +77,11 @@ module.exports = class Pool{
      * @param {String} filePath The path of the file containing the function to be run
      * @param {String} functionName The name of function to be run
      * @param {Array} params The parameters to be passed to the function
-     * @param {Function} callBack A callback function that is called when the task has finished executing
+     * @param {Function} resolveCallback A callback function that is called when the task has finished executing successfully
+     * @param {Function} rejectCallback A callback function that is called when the task has been rejected for some reason
      */
-    enqueueTask(filePath, functionName, params, callBack){
-        let task = new Task(filePath, functionName, params, callBack);
+    enqueueTask(filePath, functionName, params, resolveCallback, rejectCallback){
+        let task = new Task(filePath, functionName, params, resolveCallback, rejectCallback);
         this.taskQueue.push(task);
         this._processTasks();
     }
@@ -98,48 +105,24 @@ module.exports = class Pool{
             // set its key as not processed
             this.processed[task.key] = false;
 
-            // Build the message object
-            var message = {
-                filePath : task.filePath,
-                functionName : task.functionName,
-                params : task.params,
-                key : task.key,
-            }
+            worker.processTask(task).then((result) => {
+                task.resolveCallback(result);
 
-            // send the task to the worker to be processed
-            worker.postMessage(message);
-        }
-    }
-
-    /**
-     * @private
-     * Initializes the parent's listener to the child thread's messages
-     */
-    _initMessageListener(worker){
-        worker.on(MESSAGE_CHANNEL, (returnMessage) => {
-            if (!this.processed[returnMessage.key]){
-                this.processed[returnMessage.key] = true;
-                
-                // get the callBack
-                var callBack;
-                this.activeTasks.map( (task, i) => {
-                    if (task.key == returnMessage.key){
-                        callBack = task.callBack;
-                        this.activeTasks.splice(i, 1);
-                    }
-                });
-
-                // call the callback
-                callBack(returnMessage.result);
-            
-                // mark the worker as not busy and add it back to the pool
                 worker.busy = false;
                 this.workersPool.unshift(worker);
 
                 // a worker is freed, check if there is any task to be processed
                 this._processTasks();
-            }
-        });
+            }).catch((error) => {
+                task.rejectCallback(error);
+
+                worker.busy = false;
+                this.workersPool.unshift(worker);
+
+                // a worker is freed, check if there is any task to be processed
+                this._processTasks();
+            });
+        }
     }
 
     /**

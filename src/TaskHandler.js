@@ -17,9 +17,10 @@ module.exports = class TaskHandler {
      * Runs the task with the given parameter list, The call back function
      * is called whenever the function finishes executing.
      * @param {Array} params The parameters to be passed to the function
-     * @param {Function} callBack A callback function that is called when the task has finished executing
+     * @param {Function} resolveCallback A callback function that is called when the task has finished executing successfully
+     * @param {Function} rejectCallback A callback function that is called when the task has been rejected for some reason
      */
-    run(params, callBack){
-        this.pool.enqueueTask(this.filePath, this.functionName, params, callBack);
+    run(params, resolveCallback, rejectCallback){
+        this.pool.enqueueTask(this.filePath, this.functionName, params, resolveCallback, rejectCallback);
     }
 }

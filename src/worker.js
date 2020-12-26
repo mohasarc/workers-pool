@@ -1,7 +1,7 @@
 const {parentPort} = require('worker_threads');
 const {MESSAGE_CHANNEL} = require('./constants');
 
-parentPort.on(MESSAGE_CHANNEL,async (args) => {
+parentPort.on(MESSAGE_CHANNEL, async (args) => {
     // Require and call the function for this specific task
     var result = require(args.filePath)[args.functionName](...args.params);
 
@@ -14,12 +14,6 @@ parentPort.on(MESSAGE_CHANNEL,async (args) => {
         }
     }
 
-    // Prepare the return object
-    returnMessage = {
-        result : result,
-        key : args.key,
-    }
-
     // Send the results back
-    parentPort.postMessage(returnMessage);
+    parentPort.postMessage(result);
 });
