@@ -46,6 +46,23 @@ module.exports = class Pool{
     }
 
     /**
+     * Generates an asynchronous promise based function out of a synchronous one
+     * @param {String} filePath 
+     * @param {String} functionName 
+     */
+    getAsyncFunc(filePath, functionName){
+        var self = this;
+
+        return async function (...params) {
+            return new Promise((resolve, reject) => {
+                self.enqueueTask(filePath, functionName, params, (result) => {
+                    resolve(result);
+                });
+            });
+        }
+    }
+
+    /**
      * Enqueues a task to be processed when an idle worker thread is available
      * @param {The path of the file containing the function to be run} filePath 
      * @param {The name of function to be run} functionName 
