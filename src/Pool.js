@@ -15,7 +15,8 @@ module.exports = class Pool{
      * @param {Object} options The optional options used in creating workers
      */
     constructor(n = CPU_CORES_NO - 1, options){
-        this.workersPool = []; // contains the workers
+        this.workersPool = []; // contains the idle workers
+        this.busyWorkers = []; // contains the busy workers (processing code)
         this.taskQueue   = []; // contains the tasks to be processed
         this.activeTasks = []; // contains the tasks being processed
         this.processed = {};   // {taskKey:boolean} whether a task has been processed yet
@@ -101,6 +102,7 @@ module.exports = class Pool{
         while (this.taskQueue.length > 0 && this.workersPool.length > 0){
             // remove a free worker from the beginings of the array
             var worker = this.workersPool.shift();
+            this.busyWorkers.push(worker);
             worker.busy = true;
 
             // remove the first item in the tasks queue
@@ -117,6 +119,7 @@ module.exports = class Pool{
             }).finally(() => {
                 worker.busy = false;
                 this.workersPool.unshift(worker);
+                this.busyWorkers = this.busyWorkers.filter(busyWorker => busyWorker !== worker);
 
                 // a worker is freed, check if there is any task to be processed
                 this._processTasks();
@@ -130,7 +133,15 @@ module.exports = class Pool{
      * @param {boolean} forced To terminate immediately
      */
     terminate(forced){
-        // TODO to be implemented
+        this.workersPool.map(worker => {
+            worker.terminate();
+        });
+
+        if (forced){
+            this.busyWorkers.map(worker => {
+                worker.terminate();
+            });
+        }
     }
 
     /**
