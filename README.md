@@ -1,4 +1,5 @@
 # workers-pool
+Creating truly asynchronus functions has never been easier!   
 
 The `workers-pool` package allows you to easily create a pool of workers, pass them
 some heavy tasks in the form of functions, and use them as if they were asynchronous Promise-based functions.
@@ -14,85 +15,58 @@ npm i workers-pool
 ## Usage
 ### Method 1: Creating an asynchronous function
 
-folder structure:
-
-|__ index.js  
-|__ funcs.js  
-|__ asyncFuncs.js  
-
-The reason the code is distributed into separate files in not to make circular dependency. If the path of the same file that `getAsyncFunc()` is called from is passed to it, an infinite loop will occur, since theworker thread will include this file and create another pool and worker thread and so on. However, it is possible to have the code that is in /asyncFuncs.js in /index.js. I just prefered to have them separate for organisational purposes.
-
-
-/funcs.js will contain the function to be used as the task. The function doesn't have to be stringifyable, but it has to be exported and its parameters have to be stringifyable. On the other hand if the function has a call to another function, the other function also has to be exported.
-
 ```js
-// funcs.js
-module.exports.add = function (a, b) {
-    return a + b;
-}
-```
-
-In /asyncFuncs.js we pass the absolute path of the file containing the function as well as its name
-to `getAsyncFunc()` to create a Promis-based Asynchronous version of it.
-```js
-// asyncFuncs.js
-const path = require('path');
 const Pool = require('workers-pool');
+const {isMainThread} = require('worker_threads');
 const pool = new Pool();
 
-module.exports.addAsync = pool.getAsyncFunc(path.join(__dirname, 'funcs.js'), 'add');
-```
+function add (a, b) {
+    return a + b;
+}
+module.exports.add = add;
 
-Finally, in /index.js the generated function can be called with the parameters 
-just like its synchronous origin.
-```js
-// index.js
-const {addAsync} = require('./asyncFuncs');
+addAsync = pool.getAsyncFunc({func: add});
 
-addAsync(2, 5)
-.then((result)=>{
-    console.log(result) // output: 7
-}).catch(err => {
-    console.log(error);
-});
+if (isMainThread){
+    addAsync(2, 5)
+    .then((result)=>{
+        console.log(result) // output: 7
+    }).catch(err => {
+        console.log(error);
+    });
+}
 ```
 
 ### Method 2: Executing a function on the fly
 Another way to run functions on the fly is also available: 
 
-folder structure:
-
-|__ index.js  
-|__ funcs.js  
-
 ```js
-// funcs.js
-module.exports.add = function (a, b) {
+const Pool = require('workers-pool');
+const {isMainThread} = require('worker_threads');
+const pool = new Pool();
+
+function add (a, b) {
     return a + b;
+}
+
+module.exports.add = add;
+
+if (isMainThread){
+    pool.enqueueTask({
+        func: add, 
+        params: [2, 5], 
+        resolveCallback: (result) => {
+            console.log(result) // output: 7
+        },
+        rejectCallback: (error) => {
+            // Handle error
+            console.log(error);
+        }
+    });
 }
 ```
 
-```js
-// index.js
-const path = require('path');
-const Pool = require('workers-pool');
-const pool = new Pool(5);
-
-pool.enqueueTask(path.join(__dirname, 'funcs.js'), 'add', [2, 5], 
-(result) => {
-    console.log(result) // output: 7
-},
-(error) => {
-    // Handle error
-    console.log(error);
-});
-```
-The first step is the same. We'd also skip over the second step and
-jump directly to the third step, but instead of calling `run` method
-on TaskHandler object, we'd directly enqueue the function using 
-`pool.enqueueTask` method of pool class.
-
-### Getting stats
+### Getting status
 You can also get the status of the pools:
 ```js
 const Pool = require('workers-pool');
