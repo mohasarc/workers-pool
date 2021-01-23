@@ -67,6 +67,7 @@ module.exports = class Pool{
         if (isMainThread){
             var self = this;
     
+            // Identifying the filePath and functionName in case they're undefined
             if (!filePath && !functionName){
                 filePath = getCallerFile();
                 functionName = func.name;
@@ -74,13 +75,14 @@ module.exports = class Pool{
     
             return async function (...params) {
                 return new Promise((resolve, reject) => {
-                    self.enqueueTask(filePath, functionName, params, 
-                        (result) => {
+                    self.enqueueTask({func, filePath, functionName, params, 
+                        resolveCallback: (result) => {
                             resolve(result);
                         }, 
-                        (error) => {
+                        rejectCallback: (error) => {
                             reject(error);
                         }
+                    }
                     );
                 });
             }
@@ -95,7 +97,14 @@ module.exports = class Pool{
      * @param {Function} resolveCallback A callback function that is called when the task has finished executing successfully
      * @param {Function} rejectCallback A callback function that is called when the task has been rejected for some reason
      */
-    enqueueTask(filePath, functionName, params, resolveCallback, rejectCallback){
+    enqueueTask({func, filePath, functionName, params, resolveCallback, rejectCallback}){
+
+        // Identifying the filePath and functionName in case they're undefined
+        if (!filePath && !functionName){
+            filePath = getCallerFile();
+            functionName = func.name;
+        }
+
         let task = new Task(filePath, functionName, params, resolveCallback, rejectCallback);
         this.taskQueue.push(task);
         this._processTasks();
