@@ -5,6 +5,8 @@ const {MESSAGE_CHANNEL} = require('./constants');
 const Task = require('./task');
 const os = require('os');
 const TaskWorker = require('./TaskWorker');
+const {isMainThread} = require('worker_threads');
+const getCallerFile = require('get-caller-file');
 const CPU_CORES_NO = os.cpus().length;
 var instantiatedPools = [];
 
@@ -61,20 +63,27 @@ module.exports = class Pool{
      * @param {String} filePath 
      * @param {String} functionName 
      */
-    getAsyncFunc(filePath, functionName){
-        var self = this;
-
-        return async function (...params) {
-            return new Promise((resolve, reject) => {
-                self.enqueueTask(filePath, functionName, params, 
-                    (result) => {
-                        resolve(result);
-                    }, 
-                    (error) => {
-                        reject(error);
-                    }
-                );
-            });
+    getAsyncFunc({func, filePath, functionName}){
+        if (isMainThread){
+            var self = this;
+    
+            if (!filePath && !functionName){
+                filePath = getCallerFile();
+                functionName = func.name;
+            }
+    
+            return async function (...params) {
+                return new Promise((resolve, reject) => {
+                    self.enqueueTask(filePath, functionName, params, 
+                        (result) => {
+                            resolve(result);
+                        }, 
+                        (error) => {
+                            reject(error);
+                        }
+                    );
+                });
+            }
         }
     }
 
