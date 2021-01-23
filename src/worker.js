@@ -12,6 +12,7 @@ parentPort.on(MESSAGE_CHANNEL, async (args) => {
             try{
                 response.value = await response.value;
             } catch(error){
+                response.type = 'error';
                 response.value = error;
             }
         }
