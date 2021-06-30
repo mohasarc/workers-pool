@@ -20,11 +20,6 @@ module.exports = class TaskWorker extends Worker{
             this.clenUp();
         });
 
-        super.on("exit", (exitCode) => {
-            this.rejectCallback({task: this.task, worker: this, error: new Error("TaskWorker exited with code: ", exitCode)});
-            this.clenUp();
-        });
-
         super.on("messageerror", (error) => {
             this.rejectCallback({task: this.task, worker: this, error});
             this.clenUp();
@@ -32,7 +27,6 @@ module.exports = class TaskWorker extends Worker{
 
         super.on("online", () => {
             // console.log("TaskWorker is online");
-            this.clenUp();
         });
 
         super.on("message", (response) => {
@@ -58,9 +52,9 @@ module.exports = class TaskWorker extends Worker{
         let promise = new Promise((resolve, reject) => {
             this.resolveCallback = resolve;
             this.rejectCallback = reject;
+            super.postMessage(message);
         });
 
-        super.postMessage(message);
         return promise;
     }
 
