@@ -26,15 +26,15 @@ module.exports = class TaskWorker extends Worker{
 
         return new Promise((resolve, reject) => {
             super.on("error", (error) => {
-                reject(error);
+                reject({task, worker: this, error});
             });
 
             super.on("exit", (exitCode) => {
-                reject("TaskWorker exited with code: ", exitCode);
+                reject({task, worker: this, error: new Error("TaskWorker exited with code: ", exitCode)});
             });
 
             super.on("messageerror", (error) => {
-                reject(error);
+                reject({task, worker: this, error});
             });
 
             super.on("online", () => {
@@ -43,9 +43,9 @@ module.exports = class TaskWorker extends Worker{
 
             super.on("message", (response) => {
                 if (response.type == 'success')
-                    resolve(response.value);
+                    resolve({task, worker: this, result: response.value});
                 else if (response.type == 'error')
-                    reject(response.value);
+                    reject({task, worker: this, result: response.value});
             });
         });
     }
