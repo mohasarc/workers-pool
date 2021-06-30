@@ -1,13 +1,18 @@
-const TaskHandler = require('./TaskHandler');
-// const {Worker} = require('worker_threads');
 const path = require('path');
-const {MESSAGE_CHANNEL} = require('./constants');
-const Task = require('./task');
 const os = require('os');
-const TaskWorker = require('./TaskWorker');
-const {isMainThread} = require('worker_threads');
+const { isMainThread } = require('worker_threads');
 const getCallerFile = require('get-caller-file');
+const Mutex = require('async-mutex').Mutex;
+const Task = require('./task');
+const TaskHandler = require('./TaskHandler');
+const TaskWorker = require('./TaskWorker');
+
 const CPU_CORES_NO = os.cpus().length;
+const wp_mutex = new Mutex();
+const bw_mutex = new Mutex();
+const tq_mutex = new Mutex();
+const at_mutex = new Mutex();
+const pc_mutex = new Mutex();
 var instantiatedPools = [];
 
 module.exports = class Pool{
@@ -23,7 +28,8 @@ module.exports = class Pool{
         this.activeTasks = []; // contains the tasks being processed
         this.processed = {};   // {taskKey:boolean} whether a task has been processed yet
         this.workersNo = n;
-
+        this.processingInterval = null;
+        this.intervalLength = 50;
         instantiatedPools.push(this);
         this.poolNo = instantiatedPools.length - 1;
 
@@ -41,7 +47,7 @@ module.exports = class Pool{
         for (var i = 0; i < n; i++){
             var _worker = new TaskWorker(path.join(__dirname, 'worker.js'), optionas);
             _worker.busy = false;
-            // this._initMessageListener(_worker);
+            _worker.id = i;
             this.workersPool.push(_worker);
         }
     }
@@ -97,8 +103,7 @@ module.exports = class Pool{
      * @param {Function} resolveCallback A callback function that is called when the task has finished executing successfully
      * @param {Function} rejectCallback A callback function that is called when the task has been rejected for some reason
      */
-    enqueueTask({func, filePath, functionName, params, resolveCallback, rejectCallback}){
-
+    async enqueueTask({func, filePath, functionName, params, resolveCallback, rejectCallback}){
         // Identifying the filePath and functionName in case they're undefined
         if (!filePath && !functionName){
             filePath = getCallerFile();
@@ -106,8 +111,13 @@ module.exports = class Pool{
         }
 
         let task = new Task(filePath, functionName, params, resolveCallback, rejectCallback);
+        let tq_release = await tq_mutex.acquire();
         this.taskQueue.push(task);
-        this._processTasks();
+        tq_release();
+
+        if (!this.processingInterval) {
+            this._startTaskProcessing();
+        }
     }
 
     /**
@@ -116,33 +126,77 @@ module.exports = class Pool{
      * workers to process them, prepares them for processing, and processes
      * them.
      */
-    _processTasks(){
-        while (this.taskQueue.length > 0 && this.workersPool.length > 0){
-            // remove a free worker from the beginings of the array
-            var worker = this.workersPool.shift();
-            this.busyWorkers.push(worker);
-            worker.busy = true;
-
-            // remove the first item in the tasks queue
-            var task = this.taskQueue.shift();
-            this.activeTasks.push(task);
-
-            // set its key as not processed
-            this.processed[task.key] = false;
-
-            worker.processTask(task).then((result) => {
-                task.resolveCallback(result);
-            }).catch((error) => {
-                task.rejectCallback(error);
-            }).finally(() => {
-                worker.busy = false;
-                this.workersPool.unshift(worker);
-                this.busyWorkers = this.busyWorkers.filter(busyWorker => busyWorker !== worker);
-
-                // a worker is freed, check if there is any task to be processed
-                this._processTasks();
-            });
+    async _startTaskProcessing(){
+        var worker;
+        if (this.processingInterval != null) {
+            return;
         }
+        this.processingInterval = setInterval(async () => {
+            let wp_release = await wp_mutex.acquire();
+            let tq_release = await tq_mutex.acquire();
+            
+            if (this.taskQueue.length < 1) {
+                this.stopProcessing();
+                tq_release();
+                wp_release();
+            } else {
+                for (let task of this.taskQueue) {
+                    if (this.workersPool.length > 0) {
+                        let bw_release = await bw_mutex.acquire();
+                        let at_release = await at_mutex.acquire();
+                        let pc_release = await pc_mutex.acquire();
+
+                        // remove a free worker from the beginings of the array
+                        worker = this.workersPool.shift();
+                        this.busyWorkers.push(worker);
+                        task = this.taskQueue.shift();
+                        this.activeTasks.push(task);
+                        this.processed[task.key] = false;
+    
+                        worker.processTask(task).then((answer) => {
+                            answer.task.resolveCallback(answer.result);
+                            this.updateWorkersQueue(answer);
+                        }).catch((answer) => {
+                            answer.task.rejectCallback(answer.error);
+                            this.updateWorkersQueue(answer);
+                        });
+                        
+                        at_release();
+                        bw_release();
+                        pc_release();
+                    } else {
+                        break;
+                    }
+                }
+                
+                tq_release();
+                wp_release();
+            }
+        }, this.intervalLength);
+    }
+
+    /**
+     * 
+     */
+    stopProcessing(){
+        if (this.processingInterval){
+            clearInterval(this.processingInterval);
+            this.processingInterval = null;
+        }
+    }
+
+    /**
+     * 
+     * @param {*} answer 
+     */
+    async updateWorkersQueue (answer) {
+        let wpi_release = await wp_mutex.acquire()
+        let bwi_release = await bw_mutex.acquire()
+        this.workersPool.unshift(answer.worker);
+        this.busyWorkers = this.busyWorkers.filter(busyWorker => busyWorker.id !== answer.worker.id);
+        
+        bwi_release();
+        wpi_release();
     }
 
     /**
@@ -151,17 +205,28 @@ module.exports = class Pool{
      * @param {boolean} forced To terminate immediately
      */
     terminate(forced){
-        this.taskQueue = [];
+        tq_mutex.acquire().then((tq_release) => {
+            this.taskQueue = [];
+            tq_release();
 
-        this.workersPool.map(worker => {
-            worker.terminate();
-        });
+            wp_mutex.acquire().then((wp_release) => {
+                this.workersPool.map(worker => {
+                    worker.terminate();
+                });
+                this.workersPool = [];
+                wp_release();
 
-        if (forced){
-            this.busyWorkers.map(worker => {
-                worker.terminate();
+                if (forced){
+                    bw_mutex.acquire().then((bw_release) => {
+                        this.busyWorkers.map(worker => {
+                            worker.terminate();
+                        });
+                        this.busyWorkers = [];
+                        bw_release();
+                    });
+                }
             });
-        }
+        });
     }
 
     /**

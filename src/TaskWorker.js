@@ -4,49 +4,64 @@ module.exports = class TaskWorker extends Worker{
     constructor(fileName, options){
         super(fileName, options);
         this.busy = false;
-    }
-
-    setBusy(busy){
-        this.busy = busy;
+        this.task;
+        this.rejectCallback;
+        this.resolveCallback;
+        this.initListeners();
     }
 
     isBusy(){
         return this.busy;
     }
 
+    initListeners() {
+        super.on("error", (error) => {
+            this.rejectCallback({task: this.task, worker: this, error});
+            this.clenUp();
+        });
+
+        super.on("messageerror", (error) => {
+            this.rejectCallback({task: this.task, worker: this, error});
+            this.clenUp();
+        });
+
+        super.on("online", () => {
+            // console.log("TaskWorker is online");
+        });
+
+        super.on("message", (response) => {
+            if (response.type == 'success')
+                this.resolveCallback({task: this.task, worker: this, result: response.value});
+            else if (response.type == 'error')
+                this.rejectCallback({task: this.task, worker: this, result: response.value});
+
+            this.clenUp();
+        });
+    }
+
     async processTask(task){
         // Build the message object
+        this.busy = true;
+        this.task = task;
         var message = {
             filePath : task.filePath,
             functionName : task.functionName,
             params : task.params,
         }
 
-        super.postMessage(message);
-
-        return new Promise((resolve, reject) => {
-            super.on("error", (error) => {
-                reject(error);
-            });
-
-            super.on("exit", (exitCode) => {
-                reject("TaskWorker exited with code: ", exitCode);
-            });
-
-            super.on("messageerror", (error) => {
-                reject(error);
-            });
-
-            super.on("online", () => {
-                // console.log("TaskWorker is online");
-            });
-
-            super.on("message", (response) => {
-                if (response.type == 'success')
-                    resolve(response.value);
-                else if (response.type == 'error')
-                    reject(response.value);
-            });
+        let promise = new Promise((resolve, reject) => {
+            this.resolveCallback = resolve;
+            this.rejectCallback = reject;
+            super.postMessage(message);
         });
+
+        return promise;
+    }
+
+    clenUp() {
+        this.task = null;
+        this.rejectCallback = null;
+        this.resolveCallback = null;
+        this.busy = false;
     }
 }
