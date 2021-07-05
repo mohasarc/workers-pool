@@ -29,7 +29,7 @@ module.exports = class Pool{
         this.processed = {};   // {taskKey:boolean} whether a task has been processed yet
         this.workersNo = n;
         this.processingInterval = null;
-        this.intervalLength = 50;
+        this.intervalLength = 5;
         instantiatedPools.push(this);
         this.poolNo = instantiatedPools.length - 1;
 
@@ -111,9 +111,9 @@ module.exports = class Pool{
         }
 
         let task = new Task(filePath, functionName, params, resolveCallback, rejectCallback);
-        let tq_release = await tq_mutex.acquire();
+        // let tq_release = await tq_mutex.acquire();
         this.taskQueue.push(task);
-        tq_release();
+        // tq_release();
 
         if (!this.processingInterval) {
             this._startTaskProcessing();
@@ -132,19 +132,19 @@ module.exports = class Pool{
             return;
         }
         this.processingInterval = setInterval(async () => {
-            let wp_release = await wp_mutex.acquire();
-            let tq_release = await tq_mutex.acquire();
+            // let wp_release = await wp_mutex.acquire();
+            // let tq_release = await tq_mutex.acquire();
             
             if (this.taskQueue.length < 1) {
                 this.stopProcessing();
-                tq_release();
-                wp_release();
+                // tq_release();
+                // wp_release();
             } else {
                 for (let task of this.taskQueue) {
                     if (this.workersPool.length > 0) {
-                        let bw_release = await bw_mutex.acquire();
-                        let at_release = await at_mutex.acquire();
-                        let pc_release = await pc_mutex.acquire();
+                        // let bw_release = await bw_mutex.acquire();
+                        // let at_release = await at_mutex.acquire();
+                        // let pc_release = await pc_mutex.acquire();
 
                         // remove a free worker from the beginings of the array
                         worker = this.workersPool.shift();
@@ -161,16 +161,16 @@ module.exports = class Pool{
                             this.updateWorkersQueue(answer);
                         });
                         
-                        at_release();
-                        bw_release();
-                        pc_release();
+                        // at_release();
+                        // bw_release();
+                        // pc_release();
                     } else {
                         break;
                     }
                 }
                 
-                tq_release();
-                wp_release();
+                // tq_release();
+                // wp_release();
             }
         }, this.intervalLength);
     }
@@ -190,13 +190,13 @@ module.exports = class Pool{
      * @param {*} answer 
      */
     async updateWorkersQueue (answer) {
-        let wpi_release = await wp_mutex.acquire()
-        let bwi_release = await bw_mutex.acquire()
+        // let wpi_release = await wp_mutex.acquire()
+        // let bwi_release = await bw_mutex.acquire()
         this.workersPool.unshift(answer.worker);
         this.busyWorkers = this.busyWorkers.filter(busyWorker => busyWorker.id !== answer.worker.id);
         
-        bwi_release();
-        wpi_release();
+        // bwi_release();
+        // wpi_release();
     }
 
     /**
@@ -205,28 +205,28 @@ module.exports = class Pool{
      * @param {boolean} forced To terminate immediately
      */
     terminate(forced){
-        tq_mutex.acquire().then((tq_release) => {
+        // tq_mutex.acquire().then((tq_release) => {
             this.taskQueue = [];
-            tq_release();
+            // tq_release();
 
-            wp_mutex.acquire().then((wp_release) => {
+            // wp_mutex.acquire().then((wp_release) => {
                 this.workersPool.map(worker => {
                     worker.terminate();
                 });
                 this.workersPool = [];
-                wp_release();
+                // wp_release();
 
                 if (forced){
-                    bw_mutex.acquire().then((bw_release) => {
+                    // bw_mutex.acquire().then((bw_release) => {
                         this.busyWorkers.map(worker => {
                             worker.terminate();
                         });
                         this.busyWorkers = [];
-                        bw_release();
-                    });
+                        // bw_release();
+                    // });
                 }
-            });
-        });
+            // });
+        // });
     }
 
     /**
