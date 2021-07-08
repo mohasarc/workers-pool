@@ -6,6 +6,7 @@ const Mutex = require('async-mutex').Mutex;
 const Task = require('./task');
 const TaskHandler = require('./TaskHandler');
 const TaskWorker = require('./TaskWorker');
+const { WORKER_SCRIPT } = require('./constants');
 
 const CPU_CORES_NO = os.cpus().length;
 const wp_mutex = new Mutex();
@@ -18,10 +19,14 @@ var instantiatedPools = [];
 module.exports = class Pool{
     /**
      * The constructor of Pool class
-     * @param {Number} n The number of threads (default is the number of cpu cores - 1)
+     * @param {number} n The number of threads (default is the number of cpu cores - 1)
      * @param {Object} options The optional options used in creating workers
+     * @param {Task[]} options.taskRunners An array of all the taskRunners for the pool
+     * @param {number} options.totThreadCount The total number of threads wanted
+     * @param {boolean} options.lockTaskRunnersToThreads Whether or not to have dedicated threads for the taskRunners
+     * @param {boolean} options.AllowDynamicTaskRunnerAddition Whether or not to allow adding more task runners
      */
-    constructor(n = CPU_CORES_NO - 1, options){
+    constructor(options){
         this.workersPool = []; // contains the idle workers
         this.busyWorkers = []; // contains the busy workers (processing code)
         this.taskQueue   = []; // contains the tasks to be processed
@@ -32,8 +37,11 @@ module.exports = class Pool{
         this.intervalLength = 5;
         instantiatedPools.push(this);
         this.poolNo = instantiatedPools.length - 1;
+        this.options = options;
 
-        this._initWorkerPool(n, options);
+
+        this._validateOptions();
+        this._initWorkerPool(this.options.totThreadCount, this.options);
     }
 
     /**
@@ -44,11 +52,57 @@ module.exports = class Pool{
      */
     _initWorkerPool(n, optionas){
         // Create n number of workers and set them to be not busy
-        for (var i = 0; i < n; i++){
-            var _worker = new TaskWorker(path.join(__dirname, 'worker.js'), optionas);
+        for (var i = 0; i < totThreadCount; i++){
+            var _worker = new TaskWorker(WORKER_SCRIPT, {eval: true});
             _worker.busy = false;
             _worker.id = i;
+
+            
             this.workersPool.push(_worker);
+        }
+    }
+
+    _validateOptions() {
+        let threadCountOfTaskRunners = 0;
+
+        if (this.options.taskRunners) {
+            this.options.taskRunners.map((taskRunner) => {
+                if (!taskRunner.name) {
+                    throw new Error("Every task runner should have a name");
+                }
+
+                if (!taskRunner.threadCount) {
+                    taskRunner.threadCount = Math.floor(this.options.totThreadCount/this.options.taskRunners.length);
+                    console.warn(`The task ${taskRunner.name} has no thread count specified; 
+                                  therefore, ${taskRunner.threadCount} is assigned to it`)
+                }
+
+                threadCountOfTaskRunners += taskRunner.threadCount;
+            });  
+        }
+
+        if (threadCountOfTaskRunners > this.options.threadCount) {
+            console.warn(`The total number of threads requested by task runners (${threadCountOfTaskRunners})
+                          exceeds the total number of threads specified (${this.options.threadCount}). The total 
+                          number of threads is updated to match the number of threads 
+                          requested by task runners`);
+            this.options.threadCount = threadCountOfTaskRunners;
+        }
+
+        if (this.options.threadCount < 1) {
+            throw new Error('threadCount cannot be less than 1');
+        }
+
+        if (!this.options.threadCount) {
+            this.options.threadCount = CPU_CORES_NO - 1;
+        }
+
+        if (!this.options.lockTaskRunnersToThreads) {
+            this.options.lockTaskRunnersToThreads = true;
+        }
+
+        if (!this.options.AllowDynamicTaskRunnerAddition) {
+            this.options.AllowDynamicTaskRunnerAddition = true;
         }
     }
 

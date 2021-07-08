@@ -15,7 +15,7 @@ module.exports = class TaskWorker extends Worker{
     }
 
     initListeners() {
-        super.on("error", (error) => {
+        super.on("error", (error) => { // TODO rejectCallback can be undefined
             this.rejectCallback({task: this.task, worker: this, error});
             this.clenUp();
         });
