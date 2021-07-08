@@ -1,4 +1,5 @@
-export function genetateScript(type, filePath, functionName) {
+
+module.exports.genetateScript = function genetateScript(type, filePath, functionName) {
     if (type === 'dynamic') {
         return ` 
             const {parentPort} = require('worker_threads');
@@ -30,7 +31,7 @@ export function genetateScript(type, filePath, functionName) {
     } else if (type === 'static') {
         return ` 
         const {parentPort} = require('worker_threads');
-        cosnt processingFunction = require(${filePath})[${functionName}];
+        const processingFunction = require("${filePath}")["${functionName}"];
 
         parentPort.on('message', async (args) => {
             // Require and call the function for this specific task
@@ -51,7 +52,7 @@ export function genetateScript(type, filePath, functionName) {
                 response.type = 'error';
                 response.value = error;
             }
-        
+
             // Send the results back
             parentPort.postMessage(response);
         });

@@ -33,6 +33,7 @@ module.exports = class Pool{
             this.activeTasks = new Array(); // contains the tasks being processed
             this.processed = new Map();   // {taskKey:boolean} whether a task has been processed yet
             this.dynamicTaskRunnerList = new Array();
+            this.busyWorkersCount = 0;
             
             this.options = options;
             this.processingInterval = null;
@@ -42,6 +43,12 @@ module.exports = class Pool{
             
             this._validateOptions();
             this._initWorkerPool();
+
+            // setInterval(() => {
+            //     console.log("WORKERS POOL: ", this.workersPool['autolay'].length);
+            //     console.log("BUSY POOL: ", this.busyWorkers['autolay']?.length);
+            //     console.log("TASK QUEUE: ", this.taskQueue.length);
+            // }, 5000);
             
             instantiatedPools.push(this);
             this.poolNo = instantiatedPools.length - 1;
@@ -58,7 +65,7 @@ module.exports = class Pool{
 
         for (var i = 0; i < taskRunnersCount; i++){
             let functionName = this.options.taskRunners[i].job.name;
-            let name = this.options.taskRunner[i].name;
+            let name = this.options.taskRunners[i].name;
             let threadCount = this.options.taskRunners[i].threadCount;
             let lockToThreads = this.options.lockTaskRunnersToThreads;
             this._addTaskRunner({name, threadCount, lockToThreads, filePath, functionName});
@@ -142,9 +149,23 @@ module.exports = class Pool{
 
             // Create the new worker
             for (let i = 0; i < threadCount; i++) {
+                let pathArr = path.normalize(filePath).split(path.sep);
+                filePath = '';
+                pathArr.map((seg, i) => {
+                    filePath += seg;
+
+                    if (i != pathArr.length - 1)
+                        filePath += '\\\\';
+                });
+                
                 let _worker = new TaskWorker(genetateScript('static', filePath, functionName), {eval: true});
                 _worker.busy = false;
                 _worker.id = i;
+
+                if (!this.workersPool[name]) {
+                    this.workersPool[name] = new Array();
+                }
+
                 this.workersPool[name].push(_worker);
             }
         } else {
@@ -236,26 +257,34 @@ module.exports = class Pool{
                             let taskRunnerInfo = this.dynamicTaskRunnerList.find(dynamicTaskRunner => dynamicTaskRunner.name === task.taskRunnerName);
                             let filePath = taskRunnerInfo.filePath;
                             let functionName = taskRunnerInfo.functionName;
-                            
+
                             task.taskRunnerName = 'dynamic';
                             task.filePath = filePath;
                             task.functionName = functionName;
                         }
 
                         worker = this.workersPool[task.taskRunnerName].shift();
-                        this.busyWorkers[task.taskRunnerName].push(worker);
-                        task = this.taskQueue.shift();
-                        this.activeTasks.push(task);
-                        this.processed[task.key] = false;
+
+                        if (worker) {
+                            if (!this.busyWorkers[task.taskRunnerName])
+                                this.busyWorkers[task.taskRunnerName] = [];
     
-                        worker.processTask(task).then((answer) => {
-                            answer.task.resolveCallback(answer.result);
-                            this.updateWorkersQueue(answer);
-                        }).catch((answer) => {
-                            answer.task.rejectCallback(answer.error);
-                            this.updateWorkersQueue(answer);
-                        });
-                        
+                            this.busyWorkers[task.taskRunnerName].push(worker);
+                            task = this.taskQueue.shift();
+                            this.activeTasks.push(task);
+                            this.processed[task.key] = false;
+        
+                            this.busyWorkersCount ++;
+    
+                            worker.processTask(task).then((answer) => {
+                                answer.task.resolveCallback(answer.result);
+                                this.updateWorkersQueue(answer);
+                            }).catch((answer) => {
+                                answer.task.rejectCallback(answer.error);
+                                this.updateWorkersQueue(answer);
+                            });
+                        }
+
                         // at_release();
                         // bw_release();
                         // pc_release();
@@ -287,6 +316,7 @@ module.exports = class Pool{
     async updateWorkersQueue (answer) {
         // let wpi_release = await wp_mutex.acquire()
         // let bwi_release = await bw_mutex.acquire()
+        this.busyWorkersCount--;
         this.workersPool[answer.task.taskRunnerName].unshift(answer.worker);
         this.busyWorkers[answer.task.taskRunnerName] = this.busyWorkers[answer.task.taskRunnerName]
                                                             .filter(busyWorker => busyWorker.id !== answer.worker.id);
@@ -317,7 +347,7 @@ module.exports = class Pool{
                         this.busyWorkers.map(worker => {
                             worker.terminate();
                         });
-                        this.busyWorkers = [];
+                        this.busyWorkers = {};
                         // bw_release();
                     // });
                 }

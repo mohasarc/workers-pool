@@ -1,5 +1,6 @@
 module.exports = class Task {
-    constructor(filePath, functionName, params, resolveCallback, rejectCallback){
+    constructor(taskRunnerName, params, resolveCallback, rejectCallback, filePath, functionName){
+        this.taskRunnerName = taskRunnerName;
         this.filePath = filePath;
         this.functionName = functionName;
         this.params = params;
