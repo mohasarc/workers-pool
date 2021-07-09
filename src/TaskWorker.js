@@ -47,6 +47,7 @@ module.exports = class TaskWorker extends Worker{
             filePath : task.filePath,
             functionName : task.functionName,
             params : task.params,
+            id: task.id
         }
 
         let promise = new Promise((resolve, reject) => {

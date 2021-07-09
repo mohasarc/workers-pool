@@ -34,8 +34,10 @@ module.exports.genetateScript = function genetateScript(type, filePath, function
         const processingFunction = require("${filePath}")["${functionName}"];
 
         parentPort.on('message', async (args) => {
+            // console.timeEnd(\`SENDING TO PROCESS \${args.id}\`)
             // Require and call the function for this specific task
-            var response = {'type': 'success', 'value': undefined};
+            console.log("THE ARGS: ", args);
+            var response = {'type': 'success', 'value': undefined, id: args.id};
             try {
                 response.value = processingFunction(...args.params);
         

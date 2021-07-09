@@ -14,6 +14,7 @@ const tq_mutex = new Mutex();
 const at_mutex = new Mutex();
 const pc_mutex = new Mutex();
 var instantiatedPools = [];
+let counter = 0;
 
 module.exports = class Pool{
     /**
@@ -37,7 +38,7 @@ module.exports = class Pool{
             
             this.options = options;
             this.processingInterval = null;
-            this.intervalLength = 5;
+            this.intervalLength = 1;
             this.staticTaskRunnerThreadCount = 0;
             this.options.callerPath = getCallerFile();
             
@@ -62,17 +63,19 @@ module.exports = class Pool{
     _initWorkerPool(){
         let taskRunnersCount = this.options.taskRunners?this.options.taskRunners.length:0;
         let filePath = this.options.callerPath;
+        let totalStaticThreads = 0;
 
         for (var i = 0; i < taskRunnersCount; i++){
             let functionName = this.options.taskRunners[i].job.name;
             let name = this.options.taskRunners[i].name;
             let threadCount = this.options.taskRunners[i].threadCount;
             let lockToThreads = this.options.lockTaskRunnersToThreads;
+            totalStaticThreads += threadCount;
             this._addTaskRunner({name, threadCount, lockToThreads, filePath, functionName});
         }
 
         // Make all others dynamic
-        for (let k = 0; k < (this.options.totThreadCount - taskRunnersCount); k++) {
+        for (let k = 0; k < (this.options.totThreadCount - totalStaticThreads); k++) {
             let _worker = new TaskWorker(genetateScript('dynamic'), {eval: true});
             _worker.busy = false;
             _worker.id = i;
@@ -193,10 +196,13 @@ module.exports = class Pool{
         if (isMainThread){
             var self = this;
             
+            
             if (!this.workersPool[taskRunnerName] && !this.workersPool['dynamic'])
-                throw new Error(`There is no task runner with the name ${taskRunnerName}`)
-
+            throw new Error(`There is no task runner with the name ${taskRunnerName}`)
+            
             return async function (...params) {
+                counter++;
+                console.time(`ENQUEUE TASK ${counter}`);
                 return new Promise((resolve, reject) => {
                     let resolveCallback = (result) => {
                         resolve(result);
@@ -206,7 +212,9 @@ module.exports = class Pool{
                         reject(error);
                     };
 
-                    self.enqueueTask( new Task(taskRunnerName, params, resolveCallback, rejectCallback));
+                    let task = new Task(taskRunnerName, params, resolveCallback, rejectCallback);
+                    task.id = counter;
+                    self.enqueueTask( task );
                 });
             }
         }
@@ -219,6 +227,7 @@ module.exports = class Pool{
     async enqueueTask(task){
         // let tq_release = await tq_mutex.acquire();
         this.taskQueue.push(task);
+        console.timeEnd(`ENQUEUE TASK ${task.id}`);
         // tq_release();
 
         if (!this.processingInterval) {
@@ -266,6 +275,7 @@ module.exports = class Pool{
                         worker = this.workersPool[task.taskRunnerName].shift();
 
                         if (worker) {
+                            console.time(`SENDING TO PROCESS ${task.id}`);
                             if (!this.busyWorkers[task.taskRunnerName])
                                 this.busyWorkers[task.taskRunnerName] = [];
     
@@ -277,6 +287,7 @@ module.exports = class Pool{
                             this.busyWorkersCount ++;
     
                             worker.processTask(task).then((answer) => {
+                                console.timeEnd(`SENDING TO PROCESS ${answer.id}`)
                                 answer.task.resolveCallback(answer.result);
                                 this.updateWorkersQueue(answer);
                             }).catch((answer) => {
