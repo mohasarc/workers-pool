@@ -18,6 +18,7 @@ interface TaskRunner {
     functionName?: string;
     filePath?: string; 
     threadCount?: number;
+    lockToThreads?: boolean;
 }
 
 interface WorkersPoolOptions {
@@ -94,8 +95,8 @@ module.exports = class Pool{
             _worker.busy = false;
             _worker.id = i;
             
-            if (!this.workersPool[DYNAMIC]) {
-                this.workersPool[DYNAMIC] = [];
+            if (!this.workersPool.has(DYNAMIC)) {
+                this.workersPool.set(DYNAMIC, new Array<TaskWorker>());
             }
             
             this.workersPool[DYNAMIC].push(_worker);
@@ -168,7 +169,7 @@ module.exports = class Pool{
             for (let i = 0; i < threadCount; i++) {
                 let pathArr = path.normalize(filePath).split(path.sep);
                 filePath = '';
-                pathArr.map((seg, i) => {
+                pathArr.map((seg: string, i: number) => {
                     filePath += seg;
 
                     if (i != pathArr.length - 1)
@@ -179,8 +180,8 @@ module.exports = class Pool{
                 _worker.busy = false;
                 _worker.id = i;
 
-                if (!this.workersPool[name]) {
-                    this.workersPool[name] = new Array();
+                if (!this.workersPool.has(name)) {
+                    this.workersPool.set(name, new Array<TaskWorker>());
                 }
 
                 this.workersPool[name].push(_worker);
@@ -194,7 +195,8 @@ module.exports = class Pool{
         }
     }
 
-    addTaskRunner({name, job, threadCount, lockToThreads}) {
+    addTaskRunner(taskRunner: TaskRunner) {
+        let {name, job, threadCount, lockToThreads} = taskRunner;
         let filePath = getCallerFile();
         let functionName = job.name;
 
@@ -203,20 +205,17 @@ module.exports = class Pool{
 
     /**
      * Generates an asynchronous promise based function out of a synchronous one
-     * @param {String} filePath 
-     * @param {String} functionName 
+     * @param {string} taskRunnerName
      */
-    getAsyncFunc(taskRunnerName){
+    getAsyncFunc(taskRunnerName: string){
         if (isMainThread){
             var self = this;
             
-            
-            if (!this.workersPool[taskRunnerName] && !this.workersPool[DYNAMIC])
+            if (!this.workersPool.get(taskRunnerName) && !this.workersPool.get(DYNAMIC))
             throw new Error(`There is no task runner with the name ${taskRunnerName}`)
             
             return async function (...params) {
                 counter++;
-                console.time(`ENQUEUE TASK ${counter}`);
                 return new Promise((resolve, reject) => {
                     let resolveCallback = (result) => {
                         resolve(result);
@@ -237,10 +236,8 @@ module.exports = class Pool{
      * Enqueues a task to be processed when an idle worker thread is available
      * @param {Task} task The task to be run 
      */
-    async enqueueTask(task){
-        // let tq_release = await tq_mutex.acquire();
+    async enqueueTask(task: Task){
         this.taskQueue.push(task);
-        // tq_release();
 
         if (!this.processingInterval) {
             this._startTaskProcessing();
@@ -254,27 +251,19 @@ module.exports = class Pool{
      * them.
      */
     async _startTaskProcessing(){
-        var worker;
+        var worker: TaskWorker;
         if (this.processingInterval != null) {
             return;
         }
         this.processingInterval = setInterval(async () => {
-            // let wp_release = await wp_mutex.acquire();
-            // let tq_release = await tq_mutex.acquire();
             
             if (this.taskQueue.length < 1) {
                 this.stopProcessing();
-                // tq_release();
-                // wp_release();
             } else {
                 for (let task of this.taskQueue) {
                     if (this.busyWorkersCount !== this.options.totalThreadCount) {
-                        // let bw_release = await bw_mutex.acquire();
-                        // let at_release = await at_mutex.acquire();
-                        // let pc_release = await pc_mutex.acquire();
-
                         // remove a free worker from the beginings of the array
-                        if (!this.workersPool[task.taskRunnerName]) {
+                        if (!this.workersPool.get(task.taskRunnerName)) {
                             let taskRunnerInfo = this.dynamicTaskRunnerList.find(dynamicTaskRunner => dynamicTaskRunner.name === task.taskRunnerName);
                             let filePath = taskRunnerInfo.filePath;
                             let functionName = taskRunnerInfo.functionName;
@@ -284,21 +273,21 @@ module.exports = class Pool{
                             task.functionName = functionName;
                         }
 
-                        worker = this.workersPool[task.taskRunnerName].shift();
+                        worker = this.workersPool.get(task.taskRunnerName).shift();
 
                         if (worker) {
-                            if (!this.busyWorkers[task.taskRunnerName])
-                                this.busyWorkers[task.taskRunnerName] = [];
+                            if (!this.busyWorkers.has(task.taskRunnerName))
+                                this.busyWorkers.set(task.taskRunnerName, new Array<TaskWorker>());
     
-                            this.busyWorkers[task.taskRunnerName].push(worker);
+                            this.busyWorkers.get(task.taskRunnerName).push(worker);
                             task = this.taskQueue.shift();
                             this.activeTasks.push(task);
-                            this.processed[task.key] = false;
+                            
+                            this.processed.set(task.key, false);
         
                             this.busyWorkersCount ++;
     
                             worker.processTask(task).then((answer) => {
-                                console.timeEnd(`SENDING TO PROCESS ${answer.id}`)
                                 answer.task.resolveCallback(answer.result);
                                 this.updateWorkersQueue(answer);
                             }).catch((answer) => {
@@ -306,17 +295,10 @@ module.exports = class Pool{
                                 this.updateWorkersQueue(answer);
                             });
                         }
-
-                        // at_release();
-                        // bw_release();
-                        // pc_release();
                     } else {
                         break;
                     }
                 }
-                
-                // tq_release();
-                // wp_release();
             }
         }, this.intervalLength);
     }
@@ -336,15 +318,10 @@ module.exports = class Pool{
      * @param {*} answer 
      */
     async updateWorkersQueue (answer) {
-        // let wpi_release = await wp_mutex.acquire()
-        // let bwi_release = await bw_mutex.acquire()
         this.busyWorkersCount--;
-        this.workersPool[answer.task.taskRunnerName].unshift(answer.worker);
-        this.busyWorkers[answer.task.taskRunnerName] = this.busyWorkers[answer.task.taskRunnerName]
-                                                            .filter(busyWorker => busyWorker.id !== answer.worker.id);
-        
-        // bwi_release();
-        // wpi_release();
+        this.workersPool.get(answer.task.taskRunnerName).unshift(answer.worker);
+        this.busyWorkers.set(answer.task.taskRunnerName, this.busyWorkers[answer.task.taskRunnerName]
+                                                            .filter(busyWorker => busyWorker.id !== answer.worker.id));
     }
 
     /**
