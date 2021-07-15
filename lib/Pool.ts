@@ -29,7 +29,7 @@ interface WorkersPoolOptions {
     threadCount: number;
 }
 
-module.exports = class Pool{
+export class Pool{
     workersPool: Map<string, Array<TaskWorker>>;
     busyWorkers: Map<string, Array<TaskWorker>>;
     taskQueue: Array<Task>;
@@ -99,7 +99,7 @@ module.exports = class Pool{
                 this.workersPool.set(DYNAMIC, new Array<TaskWorker>());
             }
             
-            this.workersPool[DYNAMIC].push(_worker);
+            this.workersPool.get(DYNAMIC).push(_worker);
         }
     }
 
@@ -184,7 +184,7 @@ module.exports = class Pool{
                     this.workersPool.set(name, new Array<TaskWorker>());
                 }
 
-                this.workersPool[name].push(_worker);
+                this.workersPool.get(name).push(_worker);
             }
         } else {
             if (this.staticTaskRunnerThreadCount === this.options.totalThreadCount) {
@@ -319,8 +319,9 @@ module.exports = class Pool{
      */
     async updateWorkersQueue (answer) {
         this.busyWorkersCount--;
+        this.activeTasks = this.activeTasks.filter( task => task.key !== answer.task.key);
         this.workersPool.get(answer.task.taskRunnerName).unshift(answer.worker);
-        this.busyWorkers.set(answer.task.taskRunnerName, this.busyWorkers[answer.task.taskRunnerName]
+        this.busyWorkers.set(answer.task.taskRunnerName, this.busyWorkers.get(answer.task.taskRunnerName)
                                                             .filter(busyWorker => busyWorker.id !== answer.worker.id));
     }
 
@@ -329,56 +330,71 @@ module.exports = class Pool{
      * active tasks to finish.
      * @param {boolean} forced To terminate immediately
      */
-    terminate(forced){
-        // // tq_mutex.acquire().then((tq_release) => {
-        //     this.taskQueue = [];
-        //     // tq_release();
+    terminate(forced: boolean){
+        this.taskQueue = [];
 
-        //     // wp_mutex.acquire().then((wp_release) => {
-        //         this.workersPool.map(worker => {
-        //             worker.terminate();
-        //         });
-        //         this.workersPool = [];
-        //         // wp_release();
+        Object.values(this.workersPool).map(worker => {
+            worker.terminate();
+        });
 
-        //         if (forced){
-        //             // bw_mutex.acquire().then((bw_release) => {
-        //                 this.busyWorkers.map(worker => {
-        //                     worker.terminate();
-        //                 });
-        //                 this.busyWorkers = {};
-        //                 // bw_release();
-        //             // });
-        //         }
-        //     // });
-        // // });
+        this.workersPool = new Map<string, Array<TaskWorker>>();
+
+        if (forced){
+            Object.values(this.busyWorkers).map(worker => {
+                worker.terminate();
+            });
+
+            this.busyWorkers = new Map<string, Array<TaskWorker>>();
+        }
     }
 
     /**
      * The current status of the pool
      * @param {boolean} detailed If true the information will be detailed
      */
-    static status(detailed){
-        // console.log('Number of pools: ', instantiatedPools.length);
+    static status(detailed: boolean = false){
+        console.log('-------------------')
+        console.log('\nNumber of pools: ', instantiatedPools.length);
 
-        // instantiatedPools.map( pool => {
-        //     console.log(`---------- POOL ${pool.poolNo} ----------`)
-        //     console.log('Number of idle workers: ', pool.workersPool.length);
-        //     console.log('Number of busy workers: ', pool.workersNo - pool.workersPool.length);
-        //     console.log('Number of active tasks: ', pool.activeTasks.length);
-        //     console.log('Number of Waiting tasks: ', pool.taskQueue.length); 
+        instantiatedPools.map( (pool: Pool) => {
+            let idleWorkers: Array<Array<TaskWorker>> = new Array<Array<TaskWorker>>();
+            let busyWorkers: Array<Array<TaskWorker>> = new Array<Array<TaskWorker>>();
+            let idleWorkersCount: number = 0;
+            let busyWorkersCount: number = 0;
+            let activeTasksCount: number = 0; 
+            let waitingTasksCount: number = 0;
             
-        //     if (detailed) {
-        //         console.log('\nActive tasks: \n');
-        //         pool.activeTasks.map((task, i) => {
-        //             console.log(i,' : ', JSON.stringify(task), '\n');
-        //         });
+            idleWorkers = Array.from(pool.workersPool.values());
+            busyWorkers = Array.from(pool.busyWorkers.values());
+
+            idleWorkers.map((workersList: Array<TaskWorker>) => {
+                idleWorkersCount += workersList.length;
+            });
+            
+            busyWorkers.map((workersList: Array<TaskWorker>) => {
+                busyWorkersCount += workersList.length;
+            });
+            
+            activeTasksCount = pool.activeTasks.length;
+            waitingTasksCount = pool.taskQueue.length;
+
+            console.log(`---------- POOL ${pool.poolNo} ----------`)
+            console.log('Number of idle workers: ', idleWorkersCount);
+            console.log('Number of busy workers: ', busyWorkersCount);
+            console.log('Number of active tasks: ', activeTasksCount);
+            console.log('Number of Waiting tasks: ', waitingTasksCount); 
+            
+            if (detailed) {
+                console.log('\nActive tasks: \n');
+                pool.activeTasks.map((task, i) => {
+                    console.log(i,' : ', JSON.stringify(task), '\n');
+                });
         
-        //         console.log('Waiting tasks: \n');
-        //         pool.taskQueue.map((task, i) => {
-        //             console.log(i,' : ', JSON.stringify(task), '\n');
-        //         });
-        //     }
-        // });
+                console.log('Waiting tasks: \n');
+                pool.taskQueue.map((task, i) => {
+                    console.log(i,' : ', JSON.stringify(task), '\n');
+                });
+            }
+        });
     }
 }
