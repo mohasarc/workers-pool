@@ -1,5 +1,4 @@
-
-module.exports.genetateScript = function genetateScript(type, filePath, functionName) {
+export function genetateScript(type, filePath, functionName) {
     if (type === 'dynamic') {
         return ` 
             const {parentPort} = require('worker_threads');
@@ -34,10 +33,8 @@ module.exports.genetateScript = function genetateScript(type, filePath, function
         const processingFunction = require("${filePath}")["${functionName}"];
 
         parentPort.on('message', async (args) => {
-            // console.timeEnd(\`SENDING TO PROCESS \${args.id}\`)
             // Require and call the function for this specific task
-            console.log("THE ARGS: ", args);
-            var response = {'type': 'success', 'value': undefined, id: args.id};
+            var response = {'type': 'success', 'value': undefined};
             try {
                 response.value = processingFunction(...args.params);
         

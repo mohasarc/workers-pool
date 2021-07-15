@@ -1,32 +1,53 @@
+import { Task } from "./task";
+import { TaskWorker } from "./TaskWorker";
 const path = require('path');
 const os = require('os');
 const { isMainThread } = require('worker_threads');
 const getCallerFile = require('get-caller-file');
-const Mutex = require('async-mutex').Mutex;
-const Task = require('./task');
-const TaskWorker = require('./TaskWorker');
-const { genetateScript } = require('./scriptGenerator');
+const { genetateScript } = require('./ScriptGenerator');
 
+const DYNAMIC = 'dynamic';
+const STATIC = 'static';
 const CPU_CORES_NO = os.cpus().length;
-const wp_mutex = new Mutex();
-const bw_mutex = new Mutex();
-const tq_mutex = new Mutex();
-const at_mutex = new Mutex();
-const pc_mutex = new Mutex();
 var instantiatedPools = [];
 let counter = 0;
 
+interface TaskRunner {
+    name: string;
+    job?: Function;
+    functionName?: string;
+    filePath?: string; 
+    threadCount?: number;
+}
+
+interface WorkersPoolOptions {
+    taskRunners?: Array<TaskRunner>; // An array of all the taskRunners for the pool
+    totalThreadCount?: number; // The total number of threads wanted
+    lockTaskRunnersToThreads?: boolean; // Whether or not to have dedicated threads for the taskRunners
+    allowDynamicTaskRunnerAddition?: boolean; // Whether or not to allow adding more task runners
+    threadCount: number;
+}
+
 module.exports = class Pool{
+    workersPool: Map<string, Array<TaskWorker>>;
+    busyWorkers: Map<string, Array<TaskWorker>>;
+    taskQueue: Array<Task>;
+    activeTasks: Array<Task>;
+    processed: Map<number, boolean>;
+    dynamicTaskRunnerList: Array<TaskRunner>
+    busyWorkersCount: number;
+    options: WorkersPoolOptions;
+    processingInterval: NodeJS.Timeout;
+    intervalLength: number;
+    staticTaskRunnerThreadCount: number;
+    poolNo: number;
+
     /**
      * The constructor of Pool class
      * @param {number} n The number of threads (default is the number of cpu cores - 1)
-     * @param {Object} options The optional options used in creating workers
-     * @param {Task[]} options.taskRunners An array of all the taskRunners for the pool
-     * @param {number} options.totThreadCount The total number of threads wanted
-     * @param {boolean} options.lockTaskRunnersToThreads Whether or not to have dedicated threads for the taskRunners
-     * @param {boolean} options.AllowDynamicTaskRunnerAddition Whether or not to allow adding more task runners
+     * @param {WorkersPoolOptions} options The optional options used in creating workers
      */
-    constructor(options){
+    constructor(options: WorkersPoolOptions){
         if (isMainThread) {
             this.workersPool = new Map(); // contains the idle workers
             this.busyWorkers = new Map(); // contains the busy workers (processing code)
@@ -40,17 +61,10 @@ module.exports = class Pool{
             this.processingInterval = null;
             this.intervalLength = 1;
             this.staticTaskRunnerThreadCount = 0;
-            this.options.callerPath = getCallerFile();
             
             this._validateOptions();
-            this._initWorkerPool();
+            this._initWorkerPool(getCallerFile());
 
-            // setInterval(() => {
-            //     console.log("WORKERS POOL: ", this.workersPool['autolay'].length);
-            //     console.log("BUSY POOL: ", this.busyWorkers['autolay']?.length);
-            //     console.log("TASK QUEUE: ", this.taskQueue.length);
-            // }, 5000);
-            
             instantiatedPools.push(this);
             this.poolNo = instantiatedPools.length - 1;
         }
@@ -60,9 +74,9 @@ module.exports = class Pool{
      * @private
      * Initiates the workers pool by creating the worker threads
      */
-    _initWorkerPool(){
+    _initWorkerPool(callerPath: string){
         let taskRunnersCount = this.options.taskRunners?this.options.taskRunners.length:0;
-        let filePath = this.options.callerPath;
+        let filePath = callerPath;
         let totalStaticThreads = 0;
 
         for (var i = 0; i < taskRunnersCount; i++){
@@ -75,16 +89,16 @@ module.exports = class Pool{
         }
 
         // Make all others dynamic
-        for (let k = 0; k < (this.options.totThreadCount - totalStaticThreads); k++) {
-            let _worker = new TaskWorker(genetateScript('dynamic'), {eval: true});
+        for (let k = 0; k < (this.options.totalThreadCount - totalStaticThreads); k++) {
+            let _worker = new TaskWorker(genetateScript(DYNAMIC), {eval: true});
             _worker.busy = false;
             _worker.id = i;
             
-            if (!this.workersPool['dynamic']) {
-                this.workersPool['dynamic'] = [];
+            if (!this.workersPool[DYNAMIC]) {
+                this.workersPool[DYNAMIC] = [];
             }
             
-            this.workersPool['dynamic'].push(_worker);
+            this.workersPool[DYNAMIC].push(_worker);
         }
     }
 
@@ -101,7 +115,7 @@ module.exports = class Pool{
                 }
 
                 if (!taskRunner.threadCount) {
-                    taskRunner.threadCount = Math.floor(this.options.totThreadCount/this.options.taskRunners.length);
+                    taskRunner.threadCount = Math.floor(this.options.totalThreadCount/this.options.taskRunners.length);
                     console.warn(`The task ${taskRunner.name} has no thread count specified; 
                                   therefore, ${taskRunner.threadCount} is assigned to it`)
                 }
@@ -130,21 +144,21 @@ module.exports = class Pool{
             this.options.lockTaskRunnersToThreads = true;
         }
 
-        if (!this.options.AllowDynamicTaskRunnerAddition) {
-            this.options.AllowDynamicTaskRunnerAddition = true;
+        if (!this.options.allowDynamicTaskRunnerAddition) {
+            this.options.allowDynamicTaskRunnerAddition = true;
         }
     }
 
     _addTaskRunner({name, threadCount, lockToThreads, filePath, functionName}) {
         if (lockToThreads) {
-            if (!threadCount || threadCount > this.options.totThreadCount - this.staticTaskRunnerThreadCount) {
+            if (!threadCount || threadCount > this.options.totalThreadCount - this.staticTaskRunnerThreadCount) {
                 if (this.dynamicTaskRunnerList.length > 0) {
-                    threadCount = this.options.totThreadCount - this.staticTaskRunnerThreadCount - 1;
+                    threadCount = this.options.totalThreadCount - this.staticTaskRunnerThreadCount - 1;
     
                     if (threadCount === 0)
                         throw new Error('There are no enough free threads');
                 } else {
-                    threadCount = this.options.totThreadCount - this.staticTaskRunnerThreadCount;
+                    threadCount = this.options.totalThreadCount - this.staticTaskRunnerThreadCount;
                 }
 
                 this.staticTaskRunnerThreadCount += threadCount;
@@ -161,7 +175,7 @@ module.exports = class Pool{
                         filePath += '\\\\';
                 });
                 
-                let _worker = new TaskWorker(genetateScript('static', filePath, functionName), {eval: true});
+                let _worker = new TaskWorker(genetateScript(STATIC, filePath, functionName), {eval: true});
                 _worker.busy = false;
                 _worker.id = i;
 
@@ -172,7 +186,7 @@ module.exports = class Pool{
                 this.workersPool[name].push(_worker);
             }
         } else {
-            if (this.staticTaskRunnerThreadCount === this.options.totThreadCount) {
+            if (this.staticTaskRunnerThreadCount === this.options.totalThreadCount) {
                 throw new Error('There are no enough free threads');
             }
 
@@ -181,8 +195,8 @@ module.exports = class Pool{
     }
 
     addTaskRunner({name, job, threadCount, lockToThreads}) {
-        filePath = getCallerFile();
-        functionName = job.name;
+        let filePath = getCallerFile();
+        let functionName = job.name;
 
         this._addTaskRunner({name, threadCount, lockToThreads, filePath, functionName});
     }
@@ -197,7 +211,7 @@ module.exports = class Pool{
             var self = this;
             
             
-            if (!this.workersPool[taskRunnerName] && !this.workersPool['dynamic'])
+            if (!this.workersPool[taskRunnerName] && !this.workersPool[DYNAMIC])
             throw new Error(`There is no task runner with the name ${taskRunnerName}`)
             
             return async function (...params) {
@@ -213,7 +227,6 @@ module.exports = class Pool{
                     };
 
                     let task = new Task(taskRunnerName, params, resolveCallback, rejectCallback);
-                    task.id = counter;
                     self.enqueueTask( task );
                 });
             }
@@ -227,7 +240,6 @@ module.exports = class Pool{
     async enqueueTask(task){
         // let tq_release = await tq_mutex.acquire();
         this.taskQueue.push(task);
-        console.timeEnd(`ENQUEUE TASK ${task.id}`);
         // tq_release();
 
         if (!this.processingInterval) {
@@ -256,7 +268,7 @@ module.exports = class Pool{
                 // wp_release();
             } else {
                 for (let task of this.taskQueue) {
-                    if (this.busyWorkersCount !== this.totThreadCount) {
+                    if (this.busyWorkersCount !== this.options.totalThreadCount) {
                         // let bw_release = await bw_mutex.acquire();
                         // let at_release = await at_mutex.acquire();
                         // let pc_release = await pc_mutex.acquire();
@@ -267,7 +279,7 @@ module.exports = class Pool{
                             let filePath = taskRunnerInfo.filePath;
                             let functionName = taskRunnerInfo.functionName;
 
-                            task.taskRunnerName = 'dynamic';
+                            task.taskRunnerName = DYNAMIC;
                             task.filePath = filePath;
                             task.functionName = functionName;
                         }
@@ -275,7 +287,6 @@ module.exports = class Pool{
                         worker = this.workersPool[task.taskRunnerName].shift();
 
                         if (worker) {
-                            console.time(`SENDING TO PROCESS ${task.id}`);
                             if (!this.busyWorkers[task.taskRunnerName])
                                 this.busyWorkers[task.taskRunnerName] = [];
     
@@ -342,28 +353,28 @@ module.exports = class Pool{
      * @param {boolean} forced To terminate immediately
      */
     terminate(forced){
-        // tq_mutex.acquire().then((tq_release) => {
-            this.taskQueue = [];
-            // tq_release();
+        // // tq_mutex.acquire().then((tq_release) => {
+        //     this.taskQueue = [];
+        //     // tq_release();
 
-            // wp_mutex.acquire().then((wp_release) => {
-                this.workersPool.map(worker => {
-                    worker.terminate();
-                });
-                this.workersPool = [];
-                // wp_release();
+        //     // wp_mutex.acquire().then((wp_release) => {
+        //         this.workersPool.map(worker => {
+        //             worker.terminate();
+        //         });
+        //         this.workersPool = [];
+        //         // wp_release();
 
-                if (forced){
-                    // bw_mutex.acquire().then((bw_release) => {
-                        this.busyWorkers.map(worker => {
-                            worker.terminate();
-                        });
-                        this.busyWorkers = {};
-                        // bw_release();
-                    // });
-                }
-            // });
-        // });
+        //         if (forced){
+        //             // bw_mutex.acquire().then((bw_release) => {
+        //                 this.busyWorkers.map(worker => {
+        //                     worker.terminate();
+        //                 });
+        //                 this.busyWorkers = {};
+        //                 // bw_release();
+        //             // });
+        //         }
+        //     // });
+        // // });
     }
 
     /**
@@ -371,26 +382,26 @@ module.exports = class Pool{
      * @param {boolean} detailed If true the information will be detailed
      */
     static status(detailed){
-        console.log('Number of pools: ', instantiatedPools.length);
+        // console.log('Number of pools: ', instantiatedPools.length);
 
-        instantiatedPools.map( pool => {
-            console.log(`---------- POOL ${pool.poolNo} ----------`)
-            console.log('Number of idle workers: ', pool.workersPool.length);
-            console.log('Number of busy workers: ', pool.workersNo - pool.workersPool.length);
-            console.log('Number of active tasks: ', pool.activeTasks.length);
-            console.log('Number of Waiting tasks: ', pool.taskQueue.length); 
+        // instantiatedPools.map( pool => {
+        //     console.log(`---------- POOL ${pool.poolNo} ----------`)
+        //     console.log('Number of idle workers: ', pool.workersPool.length);
+        //     console.log('Number of busy workers: ', pool.workersNo - pool.workersPool.length);
+        //     console.log('Number of active tasks: ', pool.activeTasks.length);
+        //     console.log('Number of Waiting tasks: ', pool.taskQueue.length); 
             
-            if (detailed) {
-                console.log('\nActive tasks: \n');
-                pool.activeTasks.map((task, i) => {
-                    console.log(i,' : ', JSON.stringify(task), '\n');
-                });
+        //     if (detailed) {
+        //         console.log('\nActive tasks: \n');
+        //         pool.activeTasks.map((task, i) => {
+        //             console.log(i,' : ', JSON.stringify(task), '\n');
+        //         });
         
-                console.log('Waiting tasks: \n');
-                pool.taskQueue.map((task, i) => {
-                    console.log(i,' : ', JSON.stringify(task), '\n');
-                });
-            }
-        });
+        //         console.log('Waiting tasks: \n');
+        //         pool.taskQueue.map((task, i) => {
+        //             console.log(i,' : ', JSON.stringify(task), '\n');
+        //         });
+        //     }
+        // });
     }
 }
