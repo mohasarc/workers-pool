@@ -36,21 +36,21 @@ export declare class Pool {
      */
     constructor(options: WorkersPoolOptions);
     /**
-     * @private
      * Initiates the workers pool by creating the worker threads
      */
-    _initWorkerPool(callerPath: string): void;
+    private initWorkerPool;
     /**
-     * @private
      */
-    _validateOptions(): void;
-    _addTaskRunner({ name, threadCount, lockToThreads, filePath, functionName }: {
-        name: any;
-        threadCount: any;
-        lockToThreads: any;
-        filePath: any;
-        functionName: any;
-    }): void;
+    private validateOptions;
+    /**
+     *
+     * @param param0
+     */
+    private _addTaskRunner;
+    /**
+     *
+     * @param taskRunner
+     */
     addTaskRunner(taskRunner: TaskRunner): void;
     /**
      * Generates an asynchronous promise based function out of a synchronous one
@@ -61,23 +61,22 @@ export declare class Pool {
      * Enqueues a task to be processed when an idle worker thread is available
      * @param {Task} task The task to be run
      */
-    enqueueTask(task: Task): Promise<void>;
+    private enqueueTask;
     /**
-     * @private
      * Checks if there are any pending tasks and if there are any idle
      * workers to process them, prepares them for processing, and processes
      * them.
      */
-    _startTaskProcessing(): Promise<void>;
+    private startTaskProcessing;
     /**
      *
      */
-    stopProcessing(): void;
+    private stopProcessing;
     /**
      *
      * @param {*} answer
      */
-    updateWorkersQueue(answer: any): Promise<void>;
+    private updateWorkersQueue;
     /**
      * Terminates all the tasks. If forced is true it will not wait for the
      * active tasks to finish.

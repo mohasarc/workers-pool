@@ -63,8 +63,8 @@ export class Pool{
             this.intervalLength = 1;
             this.staticTaskRunnerThreadCount = 0;
             
-            this._validateOptions();
-            this._initWorkerPool(getCallerFile());
+            this.validateOptions();
+            this.initWorkerPool(getCallerFile());
 
             instantiatedPools.push(this);
             this.poolNo = instantiatedPools.length - 1;
@@ -72,10 +72,9 @@ export class Pool{
     }
 
     /**
-     * @private
      * Initiates the workers pool by creating the worker threads
      */
-    _initWorkerPool(callerPath: string){
+    private initWorkerPool(callerPath: string){
         let taskRunnersCount = this.options.taskRunners?this.options.taskRunners.length:0;
         let filePath = callerPath;
         let totalStaticThreads = 0;
@@ -104,9 +103,8 @@ export class Pool{
     }
 
     /**
-     * @private
      */
-    _validateOptions() {
+    private validateOptions() {
         let threadCountOfTaskRunners = 0;
 
         if (this.options.taskRunners) {
@@ -150,7 +148,11 @@ export class Pool{
         }
     }
 
-    _addTaskRunner({name, threadCount, lockToThreads, filePath, functionName}) {
+    /**
+     * 
+     * @param param0 
+     */
+    private _addTaskRunner({name, threadCount, lockToThreads, filePath, functionName}) {
         if (lockToThreads) {
             if (!threadCount || threadCount > this.options.totalThreadCount - this.staticTaskRunnerThreadCount) {
                 if (this.dynamicTaskRunnerList.length > 0) {
@@ -195,7 +197,11 @@ export class Pool{
         }
     }
 
-    addTaskRunner(taskRunner: TaskRunner) {
+    /**
+     * 
+     * @param taskRunner 
+     */
+    public addTaskRunner(taskRunner: TaskRunner) {
         let {name, job, threadCount, lockToThreads} = taskRunner;
         let filePath = getCallerFile();
         let functionName = job.name;
@@ -207,7 +213,7 @@ export class Pool{
      * Generates an asynchronous promise based function out of a synchronous one
      * @param {string} taskRunnerName
      */
-    getAsyncFunc(taskRunnerName: string){
+    public getAsyncFunc(taskRunnerName: string){
         if (isMainThread){
             var self = this;
             
@@ -236,21 +242,20 @@ export class Pool{
      * Enqueues a task to be processed when an idle worker thread is available
      * @param {Task} task The task to be run 
      */
-    async enqueueTask(task: Task){
+    private async enqueueTask(task: Task){
         this.taskQueue.push(task);
 
         if (!this.processingInterval) {
-            this._startTaskProcessing();
+            this.startTaskProcessing();
         }
     }
 
     /**
-     * @private
      * Checks if there are any pending tasks and if there are any idle
      * workers to process them, prepares them for processing, and processes
      * them.
      */
-    async _startTaskProcessing(){
+    private async startTaskProcessing(){
         var worker: TaskWorker;
         if (this.processingInterval != null) {
             return;
@@ -306,7 +311,7 @@ export class Pool{
     /**
      * 
      */
-    stopProcessing(){
+    private stopProcessing () {
         if (this.processingInterval){
             clearInterval(this.processingInterval);
             this.processingInterval = null;
@@ -317,7 +322,7 @@ export class Pool{
      * 
      * @param {*} answer 
      */
-    async updateWorkersQueue (answer) {
+    private async updateWorkersQueue (answer) {
         this.busyWorkersCount--;
         this.activeTasks = this.activeTasks.filter( task => task.key !== answer.task.key);
         this.workersPool.get(answer.task.taskRunnerName).unshift(answer.worker);
@@ -330,18 +335,24 @@ export class Pool{
      * active tasks to finish.
      * @param {boolean} forced To terminate immediately
      */
-    terminate(forced: boolean){
+    public terminate(forced: boolean){
         this.taskQueue = [];
 
-        Object.values(this.workersPool).map(worker => {
-            worker.terminate();
+        this.stopProcessing();
+
+        Array.from(this.workersPool.values()).map(workerArr => {
+            workerArr.map(worker => {
+                worker.terminate();
+            });
         });
 
         this.workersPool = new Map<string, Array<TaskWorker>>();
 
         if (forced){
-            Object.values(this.busyWorkers).map(worker => {
-                worker.terminate();
+            Array.from(this.busyWorkers.values()).map(workerArr => {
+                workerArr.map(worker => {
+                    worker.terminate();
+                });
             });
 
             this.busyWorkers = new Map<string, Array<TaskWorker>>();
