@@ -14,11 +14,10 @@ npm i workers-pool
 ```
 
 ## Usage
-### Method 1: Creating an asynchronous function
 
 `functions.js`
 ```js
-const Pool = require('workers-pool');
+const { Pool } = require('workers-pool');
 const {isMainThread} = require('worker_threads');
 
 // Some function to be made asynchronous
@@ -35,12 +34,21 @@ module.exports.add = add;
 module.exports.sub = sub;
 
 if (isMainThread){
-    // Step 2: create a pool (can create a separate pool for separate functions)
-    const myPool = new Pool();
+    // Step 2: create a pool (can create a 
+    // separate pool for separate functions)
+    const myPool = new Pool({
+        taskRunners: [
+            {name: 'add', job: add, threadCount: 4},
+            {name: 'sub', job: sub, threadCount: 4},
+        ],
+        totalThreadCount: 8,
+        lockTaskRunnersToThreads: true,
+        allowDynamicTaskRunnerAddition: false,
+    });
 
     // Step 3: generate the async version of the functions
-    let addAsync = myPool.getAsyncFunc({func: add});
-    let subAsync = myPool.getAsyncFunc({func: sub});
+    let addAsync = myPool.getAsyncFunc('add');
+    let subAsync = myPool.getAsyncFunc('sub');
 
     // Step 4: export the new async functions
     module.exports.addAsync = addAsync;
@@ -72,50 +80,6 @@ async function test() {
 test().then(() => {
     myPool.terminate();
 });
-```
-### Method 2: Executing a function on the fly
-Another way to run functions on the fly is also available: 
-
-```js
-const Pool = require('workers-pool');
-const {isMainThread} = require('worker_threads');
-const myPool = new Pool();
-
-function add (a, b) {
-    return a + b;
-}
-
-function sub (a, b) {
-    return a - b;
-}
-
-module.exports.add = add;
-module.exports.sub = sub;
-
-if (isMainThread){
-    myPool.enqueueTask({
-        func: add, 
-        params: [2, 5], 
-        resolveCallback: (result) => {
-            console.log(result) // output: 7
-        },
-        rejectCallback: (error) => {
-            // Handle error
-            console.log(error);
-        }
-    });
-
-    myPool.enqueueTask({
-        func: sub,
-        params: [100, 10],
-        resolveCallback: (result) => {
-            console.log(result) // output: 7
-        },
-        rejectCallback: (error) => {
-            console.log(error);
-        }
-    });
-}
 ```
 Note `isMainThread` is essential to defferentiate whether a file is being run in the main 
 thread or a worker thread, so it can be used to prevent certain parts of the code, especially 

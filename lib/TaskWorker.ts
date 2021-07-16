@@ -1,7 +1,14 @@
-const {Worker} = require('worker_threads');
+import { Worker, WorkerOptions } from 'worker_threads';
+import { Task } from './Task';
 
-module.exports = class TaskWorker extends Worker{
-    constructor(fileName, options){
+export class TaskWorker extends Worker {
+    busy: boolean;
+    task: Task;
+    rejectCallback: Function;
+    resolveCallback: Function;
+    id: number;
+
+    constructor(fileName: string, options: WorkerOptions) {
         super(fileName, options);
         this.busy = false;
         this.task;
@@ -10,12 +17,12 @@ module.exports = class TaskWorker extends Worker{
         this.initListeners();
     }
 
-    isBusy(){
+    isBusy(): boolean {
         return this.busy;
     }
 
-    initListeners() {
-        super.on("error", (error) => {
+    initListeners(): void {
+        super.on("error", (error) => { // TODO rejectCallback can be undefined
             this.rejectCallback({task: this.task, worker: this, error});
             this.clenUp();
         });
@@ -39,7 +46,7 @@ module.exports = class TaskWorker extends Worker{
         });
     }
 
-    async processTask(task){
+    async processTask(task: Task): Promise<any> {
         // Build the message object
         this.busy = true;
         this.task = task;
@@ -58,7 +65,7 @@ module.exports = class TaskWorker extends Worker{
         return promise;
     }
 
-    clenUp() {
+    clenUp(): void {
         this.task = null;
         this.rejectCallback = null;
         this.resolveCallback = null;
