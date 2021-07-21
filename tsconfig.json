@@ -5,8 +5,8 @@
         "es2015", "es2016",
         "es2017", "es2018",
         "esnext" ],
-        "target": "es2017",
         "compilerOptions": {
+            "target": "es2017",
             "module": "commonjs",
             "moduleResolution": "Node",
             "outDir": "./dist",
@@ -15,6 +15,7 @@
             "declarationMap": true,
             "inlineSourceMap": true,
             "inlineSources": true,
-            "esModuleInterop": true 
+            "esModuleInterop": true, 
+            "allowSyntheticDefaultImports": true
         }
 }
