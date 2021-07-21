@@ -12,8 +12,8 @@ export class TaskWorker extends Worker {
         super(fileName, options);
         this.busy = false;
         this.task;
-        this.rejectCallback;
-        this.resolveCallback;
+        this.rejectCallback = () => {};
+        this.resolveCallback = () => {};
         this.initListeners();
     }
 
@@ -22,7 +22,7 @@ export class TaskWorker extends Worker {
     }
 
     initListeners(): void {
-        super.on("error", (error) => { // TODO rejectCallback can be undefined
+        super.on("error", (error) => {
             this.rejectCallback({task: this.task, worker: this, error});
             this.clenUp();
         });

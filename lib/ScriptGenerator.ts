@@ -1,4 +1,4 @@
-export function genetateScript(type, filePath, functionName) {
+export function genetateScript(type, filePath?, functionName?) {
     if (type === 'dynamic') {
         return ` 
             const {parentPort} = require('worker_threads');

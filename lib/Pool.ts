@@ -1,10 +1,11 @@
+import os from 'os';
+import path from 'path';
+import getCallerFile from 'get-caller-file';
+import { isMainThread } from 'worker_threads';
+
 import { Task } from "./task";
 import { TaskWorker } from "./TaskWorker";
-const path = require('path');
-const os = require('os');
-const { isMainThread } = require('worker_threads');
-const getCallerFile = require('get-caller-file');
-const { genetateScript } = require('./ScriptGenerator');
+import { genetateScript } from './ScriptGenerator';
 
 const DYNAMIC = 'dynamic';
 const STATIC = 'static';

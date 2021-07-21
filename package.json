@@ -29,7 +29,7 @@
   },
   "homepage": "https://github.com/mohasarc/workers-pool#readme",
   "devDependencies": {
-    "@types/node": "^16.3.1",
+    "@types/node": "^16.4.0",
     "jest": "^26.6.3",
     "ts-node": "^10.1.0"
   },
