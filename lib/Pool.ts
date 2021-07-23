@@ -170,14 +170,16 @@ export class Pool{
 
             // Create the new worker
             for (let i = 0; i < threadCount; i++) {
-                let pathArr = path.normalize(filePath).split(path.sep);
-                filePath = '';
-                pathArr.map((seg: string, i: number) => {
-                    filePath += seg;
+                if (path.sep === '\\') {
+                    let pathArr = path.normalize(filePath).split(path.sep);
+                    filePath = '';
+                    pathArr.map((seg: string, i: number) => {
+                        filePath += seg;
 
-                    if (i != pathArr.length - 1)
-                        filePath += '\\\\';
-                });
+                        if (i != pathArr.length - 1)
+                            filePath += '\\\\';
+                    });
+                }
                 
                 let _worker = new TaskWorker(genetateScript(STATIC, filePath, functionName), {eval: true});
                 _worker.busy = false;
