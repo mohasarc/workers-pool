@@ -85,11 +85,11 @@ Note `isMainThread` is essential to defferentiate whether a file is being run in
 thread or a worker thread, so it can be used to prevent certain parts of the code, especially 
 pool and async functions creation, from being recursively run as shown in the example.
 
-### Status
-You can also get the status of the pools:
+### Stats
+You can also get the statistics of the pools:
 ```js
 const Pool = require('workers-pool');
 
-Pool.status();     // brief info about the pools
-Pool.status(true); // Verbose info about the pools
+Pool.stats();     // brief info about the pools
+Pool.stats(true); // Verbose info about the pools
 ```

@@ -363,10 +363,10 @@ export class Pool{
     }
 
     /**
-     * The current status of the pool
+     * The current statistics of the pool
      * @param {boolean} detailed If true the information will be detailed
      */
-    static status(detailed: boolean = false){
+    static stats(detailed: boolean = false){
         console.log('-------------------')
         console.log('\nNumber of pools: ', instantiatedPools.length);
 
