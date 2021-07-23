@@ -9,7 +9,9 @@
     "build": "tsc",
     "watch": "tsc --watch",
     "test": "jest",
-    "prepublish": "git push --tags"
+    "prepublish": "git push --tags",
+    "publish": "npm run build",
+    "postpublish": "npm publish"
   },
   "repository": {
     "type": "git",
@@ -33,7 +35,6 @@
     "ts-node": "^10.1.0"
   },
   "dependencies": {
-    "async-mutex": "^0.3.1",
     "get-caller-file": "^2.0.5"
   }
 }
