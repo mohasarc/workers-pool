@@ -3,7 +3,7 @@ import path from 'path';
 import getCallerFile from 'get-caller-file';
 import { isMainThread } from 'worker_threads';
 
-import { Task } from "./task";
+import { Task } from "./Task";
 import { TaskWorker } from "./TaskWorker";
 import { genetateScript } from './ScriptGenerator';
 
