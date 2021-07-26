@@ -17,4 +17,6 @@ yarn-debug.log*
 yarn-error.log*
 #dev folders
 .github/
-tests/
+lib/tests/
+# Ignore coverage files
+coverage/
