@@ -22,6 +22,6 @@ export class Task {
         this.params = params;
         this.resolveCallback = resolveCallback;
         this.rejectCallback = rejectCallback;
-        this.key = counter ? counter++ : 0;
+        this.key = counter++;
     }
 }
