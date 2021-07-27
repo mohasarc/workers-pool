@@ -1,6 +1,6 @@
 {
   "name": "workers-pool",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "Thread pool design pattern for nodejs thread workers",
   "main": "./dist/Pool.js",
   "type": "commonjs",
