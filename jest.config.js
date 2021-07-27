@@ -2,14 +2,15 @@
 module.exports = {
   collectCoverage: true,
   detectOpenHandles: true,
-  "roots": [
+  coverageReporters: ["json-summary"],
+  roots: [
     "./lib/tests"
   ],
-  "testMatch": [
+  testMatch: [
     "**/__tests__/**/*.+(ts|tsx|js)",
     "**/?(*.)+(spec|test).+(ts|tsx|js)"
   ],
-  "transform": {
+  transform: {
     "^.+\\.(ts|tsx)$": "ts-jest"
   },
 }

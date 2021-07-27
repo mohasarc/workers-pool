@@ -1,6 +1,8 @@
 # workers-pool
 Creating truly asynchronus functions has never been easier!   
 
+![Coverage](https://img.shields.io/badge/lines-40.25%25-red.svg)
+
 The `workers-pool` package allows you to easily create a pool of workers, pass them
 some heavy tasks in the form of functions, and use the generated async function as 
 asynchronous Promise-based functions.
