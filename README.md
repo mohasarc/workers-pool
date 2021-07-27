@@ -1,5 +1,6 @@
 # workers-pool
-Creating truly asynchronus functions has never been easier!   
+Creating truly asynchronus functions has never been easier!  
+      
 ![npm](https://img.shields.io/npm/dt/workers-pool)
 
 The `workers-pool` package allows you to easily create a pool of workers, pass them
