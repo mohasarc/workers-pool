@@ -159,7 +159,7 @@ Pool.stats(true); // Verbose info about the pools
 ```
 
 ### terminate
-You can terminate all the threads in the pool at once by calling 
+You can terminate all the threads in the pool at once by calling:
 ```js
 myPool.terminate(true);
 ```
