@@ -18,3 +18,4 @@ yarn-error.log*
 #dev folders
 .github/
 tests/
+coverage/
