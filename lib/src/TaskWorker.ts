@@ -40,7 +40,7 @@ export class TaskWorker extends Worker {
             if (response.type == 'success')
                 this.resolveCallback({task: this.task, worker: this, result: response.value});
             else if (response.type == 'error')
-                this.rejectCallback({task: this.task, worker: this, result: response.value});
+                this.rejectCallback({task: this.task, worker: this, error: response.value});
 
             this.clenUp();
         });
