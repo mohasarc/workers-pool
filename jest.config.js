@@ -2,7 +2,7 @@
 module.exports = {
   collectCoverage: true,
   detectOpenHandles: true,
-  coverageReporters: ["json-summary"],
+  coverageReporters: ["json-summary", "text"],
   roots: [
     "./lib/tests"
   ],
