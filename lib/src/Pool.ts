@@ -3,7 +3,7 @@ import path from 'path';
 import getCallerFile from 'get-caller-file';
 import { isMainThread } from 'worker_threads';
 
-import { Task } from "./task";
+import { Task } from "./Task";
 import { TaskWorker } from "./TaskWorker";
 import { genetateScript } from './ScriptGenerator';
 
@@ -19,15 +19,13 @@ interface TaskRunner {
     functionName?: string;
     filePath?: string; 
     threadCount?: number;
-    lockToThreads?: boolean;
+    static?: boolean;
 }
 
 interface WorkersPoolOptions {
     taskRunners?: Array<TaskRunner>; // An array of all the taskRunners for the pool
-    totalThreadCount?: number; // The total number of threads wanted
-    lockTaskRunnersToThreads?: boolean; // Whether or not to have dedicated threads for the taskRunners
     allowDynamicTaskRunnerAddition?: boolean; // Whether or not to allow adding more task runners
-    threadCount: number;
+    threadCount?: number;
 }
 
 export class Pool{
@@ -49,7 +47,7 @@ export class Pool{
      * @param {number} n The number of threads (default is the number of cpu cores - 1)
      * @param {WorkersPoolOptions} options The optional options used in creating workers
      */
-    constructor(options: WorkersPoolOptions){
+    constructor(options?: WorkersPoolOptions){
         if (isMainThread) {
             this.workersPool = new Map(); // contains the idle workers
             this.busyWorkers = new Map(); // contains the busy workers (processing code)
@@ -59,7 +57,7 @@ export class Pool{
             this.dynamicTaskRunnerList = new Array();
             this.busyWorkersCount = 0;
             
-            this.options = options;
+            this.options = options?options:{};
             this.processingInterval = null;
             this.intervalLength = 1;
             this.staticTaskRunnerThreadCount = 0;
@@ -84,13 +82,13 @@ export class Pool{
             let functionName = this.options.taskRunners[i].job.name;
             let name = this.options.taskRunners[i].name;
             let threadCount = this.options.taskRunners[i].threadCount;
-            let lockToThreads = this.options.lockTaskRunnersToThreads;
+            let lockToThreads = this.options.taskRunners[i].static;
             totalStaticThreads += threadCount;
             this._addTaskRunner({name, threadCount, lockToThreads, filePath, functionName});
         }
 
         // Make all others dynamic
-        for (let k = 0; k < (this.options.totalThreadCount - totalStaticThreads); k++) {
+        for (let k = 0; k < (this.options.threadCount - totalStaticThreads); k++) {
             let _worker = new TaskWorker(genetateScript(DYNAMIC), {eval: true});
             _worker.busy = false;
             _worker.id = i;
@@ -109,19 +107,25 @@ export class Pool{
         let threadCountOfTaskRunners = 0;
 
         if (this.options.taskRunners) {
-            this.options.taskRunners.map((taskRunner) => {
+            // Static task runners
+            this.options.taskRunners.filter(tr => tr.static).map((taskRunner) => {
                 if (!taskRunner.name) {
-                    throw new Error("Every task runner should have a name");
+                    throw new Error("Every task runner should have a name!");
                 }
 
                 if (!taskRunner.threadCount) {
-                    taskRunner.threadCount = Math.floor(this.options.totalThreadCount/this.options.taskRunners.length);
-                    console.warn(`The task ${taskRunner.name} has no thread count specified; 
-                                  therefore, ${taskRunner.threadCount} is assigned to it`)
+                    throw new Error(`The task runner ${taskRunner.name} has no threadCount specified`);
                 }
 
                 threadCountOfTaskRunners += taskRunner.threadCount;
-            });  
+            });
+
+            // Dynamic task runners
+            this.options.taskRunners.filter(tr => !tr.static).map((taskRunner) => {
+                if (!taskRunner.name) {
+                    throw new Error("Every task runner should have a name!");
+                }
+            });
         }
 
         if (threadCountOfTaskRunners > this.options.threadCount) {
@@ -132,16 +136,19 @@ export class Pool{
             this.options.threadCount = threadCountOfTaskRunners;
         }
 
-        if (this.options.threadCount < 1) {
-            throw new Error('threadCount cannot be less than 1');
-        }
-
+        
         if (!this.options.threadCount) {
-            this.options.threadCount = CPU_CORES_NO - 1;
+            if (CPU_CORES_NO < 1) {
+                console.warn('Could not read the number of cpu cores!');
+            } else {
+                this.options.threadCount = CPU_CORES_NO - 1;
+            }
         }
 
-        if (!this.options.lockTaskRunnersToThreads) {
-            this.options.lockTaskRunnersToThreads = true;
+        if (this.options.threadCount < 1) {
+            throw new Error(`threadCount cannot be less than 1. Normally if not specified the cpu cores - 1 
+                             is used, but it seems like either you have only 1 core or we could not read the 
+                             number of cores you have`);
         }
 
         if (!this.options.allowDynamicTaskRunnerAddition) {
@@ -155,14 +162,14 @@ export class Pool{
      */
     private _addTaskRunner({name, threadCount, lockToThreads, filePath, functionName}) {
         if (lockToThreads) {
-            if (!threadCount || threadCount > this.options.totalThreadCount - this.staticTaskRunnerThreadCount) {
+            if (!threadCount || threadCount > this.options.threadCount - this.staticTaskRunnerThreadCount) {
                 if (this.dynamicTaskRunnerList.length > 0) {
-                    threadCount = this.options.totalThreadCount - this.staticTaskRunnerThreadCount - 1;
+                    threadCount = this.options.threadCount - this.staticTaskRunnerThreadCount - 1;
     
                     if (threadCount === 0)
                         throw new Error('There are no enough free threads');
                 } else {
-                    threadCount = this.options.totalThreadCount - this.staticTaskRunnerThreadCount;
+                    threadCount = this.options.threadCount - this.staticTaskRunnerThreadCount;
                 }
 
                 this.staticTaskRunnerThreadCount += threadCount;
@@ -192,7 +199,7 @@ export class Pool{
                 this.workersPool.get(name).push(_worker);
             }
         } else {
-            if (this.staticTaskRunnerThreadCount === this.options.totalThreadCount) {
+            if (this.staticTaskRunnerThreadCount === this.options.threadCount) {
                 throw new Error('There are no enough free threads');
             }
 
@@ -205,7 +212,7 @@ export class Pool{
      * @param taskRunner 
      */
     public addTaskRunner(taskRunner: TaskRunner) {
-        let {name, job, threadCount, lockToThreads} = taskRunner;
+        let {name, job, threadCount, static: lockToThreads} = taskRunner;
         let filePath = getCallerFile();
         let functionName = job.name;
 
@@ -269,7 +276,7 @@ export class Pool{
                 this.stopProcessing();
             } else {
                 for (let task of this.taskQueue) {
-                    if (this.busyWorkersCount !== this.options.totalThreadCount) {
+                    if (this.busyWorkersCount !== this.options.threadCount) {
                         // remove a free worker from the beginings of the array
                         if (!this.workersPool.get(task.taskRunnerName)) {
                             let taskRunnerInfo = this.dynamicTaskRunnerList.find(dynamicTaskRunner => dynamicTaskRunner.name === task.taskRunnerName);

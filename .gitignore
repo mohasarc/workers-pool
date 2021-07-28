@@ -17,3 +17,5 @@ yarn-debug.log*
 yarn-error.log*
 # Ignore compiled TypeScript files
 dist/
+# Ignore coverage files
+coverage/

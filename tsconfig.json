@@ -1,6 +1,6 @@
 {
-    "include": ["./lib"],
-    "exclude": ["./node_modules/**/*"],
+    "include": ["./lib", "lib/tests"],
+    "exclude": ["./node_modules/**/*", "./lib/tests"],
     "lib": [ "es5", "es6", "es7",
         "es2015", "es2016",
         "es2017", "es2018",
@@ -10,7 +10,7 @@
             "module": "commonjs",
             "moduleResolution": "Node",
             "outDir": "./dist",
-            "rootDir": "./lib",
+            "rootDir": "./lib/src",
             "declaration": true,
             "declarationMap": true,
             "inlineSourceMap": true,
